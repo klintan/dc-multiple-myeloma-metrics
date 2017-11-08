@@ -1,7 +1,7 @@
 from sklearn.metrics import auc, recall_score, matthews_corrcoef, f1_score, average_precision_score
 from lifelines.utils import concordance_index
 import numpy as np
-
+import timeROC as timeROCPackage
 
 class Calculate():
     def __init__(self):
@@ -31,21 +31,7 @@ class Calculate():
 
     ## Calculate TimeROC
     def timeROC(self, predicted, D_PFS, D_PFS_FLAG, times=30.5 * np.asarray([14, 16, 18, 20, 22])):
-        # https://github.com/cran/timeROC/blob/master/R/timeROC_3.R
-
-        # T              : vector of observed failure times
-        # delta          : vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...)
-        # marker         : vector ofmarker values
-        # other_markers  : (default is NULL, should be a matrix) other markers that can be associated with the censoring mechanism
-        # cause          : the value that indicates the main event of interest
-        # weighting      : (default is "marginal") weighting technique for IPCW : "marginal" for Kaplan-Meier, "cox" for proportional hazards cox model, "aalen" for additive aalen model
-        # times          : vector of times you want to compute the time dependent AUC.
-        # ROC            : if TRUE, then save True Positive fraction (Sensitivity) and False Positive fraction (1-Specificity)
-        #                  for all time in vetor times
-        # iid             : TRUE or FALSE, indicates if we want to compute the iid representation of the AUC estimator
-        print(times)
-
-
+        tempAUC = timeROCPackage(T=D_PFS, delta=D_PFS_FLAG, marker=predicted, cause=1, times=times)
         pass
 
     def integratedAUC(self, predicted, D_PFS, D_PFS_FLAG, times=30.5 * np.asarray([14, 16, 18, 20, 22])):
