@@ -1,7 +1,9 @@
 import numpy as np
 import functools
 import pandas as pd
-import ipcw
+from ipcw import ipcw
+from lifelines import KaplanMeierFitter
+import iid_decomposition as compute_iid_decomposition
 
 
 def reduce_concat(x, sep=""):
@@ -13,6 +15,10 @@ def paste(*lists, sep=" ", collapse=None):
     if collapse is not None:
         return reduce_concat(result, sep=collapse)
     return list(result)
+
+
+def difftime():
+    pass
 
 
 def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="marginal", ROC=True, iid=False):
@@ -51,7 +57,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
     # Initialize variables
     n = len(T)
-    # n_marker = len(unique(marker)) # not sure what this is suppose to do
+    n_marker = len(set(marker))  # get all unique markers ?
     n_times = len(times)
     if n_times == 1:
         times = [0] + times
@@ -82,12 +88,13 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     weights = {}
     # use ipcw function from pec package
     if (weighting == "marginal"):
-        weights = ipcw(Surv(failure_time, status),
-                       data=pd.DataFrame(failure_time=T, status=int(delta != 0), method="marginal", times=times,
-                                         subjectTimes=T, subjectTimesLag=1)
+        Surv = {}  # Surv(failure_time, status)
+        weights = ipcw(Surv,
+                       data=pd.DataFrame(), method="marginal", times=times,
+                       subjectTimes=T, subjectTimesLag=1)  # DF failure_time=T, status=int(delta != 0)
 
-        if (weighting == "cox"):
-            raise ("Cox weighing not yet supported")
+    if (weighting == "cox"):
+        raise ("Cox weighing not yet supported")
     if (weighting == "aalen"):
         raise ("Aalen weighing not yet supported")
 
@@ -113,42 +120,48 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
     # loop on all timepoints t
     for t in range(1, n_times):
-        Cases = Mat_data[, "T"] < times[t] & Mat_data[, "delta"] == cause
-        # Controls_1 = Mat_data[, "T"] > times[t]
-        # Controls_2 = Mat_data[, "T"] < times[t] & Mat_data[, "delta"] != cause & Mat_data[, "delta"] != 0
+        Cases = Mat_data["T"] < times[t] & Mat_data["delta"] == cause
+        Controls_1 = Mat_data["T"] > times[t]
+        Controls_2 = Mat_data["T"] < times[t] & Mat_data["delta"] != cause & Mat_data["delta"] != 0
         if weighting != "marginal":
-            Weights_controls_1 = 1 / (weights.times(, t) * n)
-            else:
-            Weights_controls_1 = rep(1 / (weights.times[t] * n), times=n)
+            Weights_controls_1 = 1 / (weights.times(t) * n)
+        else:
+            # Weights_controls_1 = 1 / (weights.times[t] * n), times=n
+            pass
 
         Weights_controls_1 = Weights_controls_1[order_marker]
+
         Weights_cases = Weights_cases_all
         Weights_controls_2 = Weights_cases_all
-        Weights_cases[!Cases] < -0
-        Weights_controls_1[!Controls_1] = 0
-        Weights_controls_2[!Controls_2] = 0
+
+        Weights_cases[Cases] = 0  # DF is.na ?
+        Weights_controls_1[Controls_1] = 0  # DF is.na ?
+        Weights_controls_2[Controls_2] = 0  # DF is.na ?
+
         den_TP_t = sum(Weights_cases)
         den_FP_1_t = sum(Weights_controls_1)
         den_FP_2_t = sum(Weights_controls_2) + sum(Weights_controls_1)
+
         if den_TP_t != 0:
-            TP_tbis = c(0, cumsum(Weights_cases)) / den_TP_t
-            TP_t = TP_tbis[!duplicated(marker[order_marker])]
-            else:
+            TP_tbis = np.array(0, np.cumsum(Weights_cases)) / den_TP_t
+            TP_t = TP_tbis[pd.duplicated(marker[order_marker])]  # get all not duplicated (needs to be a dataframe)
+        else:
             TP_t = None
 
         if (den_FP_1_t != 0):
-            FP_1_tbis = c(0, cumsum(Weights_controls_1)) / den_FP_1_t
-            FP_1_t = FP_1_tbis[!duplicated(marker[order_marker])]
-            else:
+            FP_1_tbis = np.array(0, np.cumsum(Weights_controls_1)) / den_FP_1_t
+            FP_1_t = FP_1_tbis[pd.duplicated(marker[order_marker])]
+        else:
             FP_1_t = None
-        if (den_FP_2_t != 0):
-            FP_2_tbis < -c(0, cumsum(Weights_controls_1) + cumsum(Weights_controls_2)) / den_FP_2_t
-            FP_2_t < -FP_2_tbis[!duplicated(marker[order_marker])]
-            else:
+
+        if den_FP_2_t != 0:
+            FP_2_tbis = np.array(0, np.cumsum(Weights_controls_1) + np.cumsum(Weights_controls_2)) / den_FP_2_t
+            FP_2_t = FP_2_tbis[pd.duplicated(marker[order_marker])]
+        else:
             FP_2_t = None
 
         # internal function to compute an area under a curve by trapezoidal rule
-        def AireTrap(Abs, Ord):
+        def airetrap(Abs, Ord):
             nobs = len(Abs)
             dAbs = Abs[-1] - Abs[-nobs]
             mil = (Ord[-nobs] + Ord[-1]) / 2
@@ -156,88 +169,89 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
             return (area)
 
         if den_TP_t * den_FP_1_t != 0:
-            AUC_1[t] = AireTrap(FP_1_t, TP_t)
+            AUC_1[t] = airetrap(FP_1_t, TP_t)
         else:
             AUC_1[t] = None
 
         if (den_TP_t * den_FP_2_t != 0):
-            AUC_2[t] = AireTrap(FP_2_t, TP_t)
+            AUC_2[t] = airetrap(FP_2_t, TP_t)
         else:
             AUC_2[t] = None
-        if (ROC == True):
-            TP[, t] = TP_t
-            FP_1[, t] = FP_1_t
-            FP_2[, t] = FP_2_t
 
-    CumInci[t] = c(den_TP_t)
-    surv[t] = c(den_FP_1_t)
-    Stats[t,] = c(sum(Cases), sum(Controls_1), sum(Controls_2), n - sum(Cases) - sum(Controls_1) - sum(Controls_2))
+        if ROC == True:
+            TP[:, t] = TP_t
+            FP_1[:, t] = FP_1_t
+            FP_2[:, t] = FP_2_t
 
+    CumInci[t] = np.array(den_TP_t)
+    surv[t] = np.array(den_FP_1_t)
+    Stats[t, :] = np.array(sum(Cases), sum(Controls_1), sum(Controls_2),
+                           n - sum(Cases) - sum(Controls_1) - sum(Controls_2))
 
-inference = None
-if (iid == True):
-    if weighting != "marginal":
-        raise (
-            "Error : Weighting must be marginal for computing the iid representation \n Choose iid=FALSE or weighting=marginal in the input arguments")
+    inference = None
+    if iid == True:
+        if weighting != "marginal":
+            raise (
+                "Error : Weighting must be marginal for computing the iid representation \n Choose iid=FALSE or weighting=marginal in the input arguments")
 
-else:
-    # create iid representation required for inference procedures
-    out_iid = vector("list", n_times)
-    names(out_iid) = paste("t=", times, sep="")
-    vect_iid_comp_time = rep(NA, times=n_times)
-    names(vect_iid_comp_time) = paste("t=", times, sep="")
-    mat_iid_rep = np.matrix(np.zeros(n), np.zeros(n_times))
-    colnames(mat_iid_rep) = paste("t=", times, sep="")
-    mat_iid_rep_star = np.matrix(np.zeros(n), np.zeros(n_times))
-    colnames(mat_iid_rep_star) = paste("t=", times, sep="")
-    vetc_se = rep(NA, times=n_times)
-    names(vetc_se) = paste("t=", times, sep="")
-    vetc_sestar = rep(NA, times=n_times)
-    names(vetc_sestar) = paste("t=", times, sep="")
-
-# compute iid for Kaplan Meier
-MatInt0TcidhatMCksurEff = Compute.iid.KM(times=T, status=delta)
-for j in range(1, n_times):
-    # compute iid representation when AUC can be computed
-    if AUC_1[j] or AUC_2[j]):
-        out_iid[[j]] = compute_iid_decomposition(t=times[j], n=n, cause=cause, F01t=CumInci[j], St=surv[j], weights, T,
-                                                 delta, marker, MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff)}
     else:
-        out_iid[[j]] = None
-    # browser()
-    # save output for inference for AUC_1 when AUC_1 can be computed
-    if AUC_1[j]:
-        mat_iid_rep_star[, j] = out_iid[[j]]$iid_representation_AUCstar
-    vetc_sestar[j] = out_iid[[j]]$seAUCstar
-    vect_iid_comp_time[j] = out_iid[[j]]$computation_times
+        # create iid representation required for inference procedures
+        out_iid = np.array("list", n_times)
+        names[out_iid] = paste("t=", times, sep="")
+        vect_iid_comp_time = rep(NA, times=n_times)
+        names[vect_iid_comp_time] = paste("t=", times, sep="")
+        mat_iid_rep = np.matrix(np.zeros(n), np.zeros(n_times))
+        colnames[mat_iid_rep] = paste("t=", times, sep="")
+        mat_iid_rep_star = np.matrix(np.zeros(n), np.zeros(n_times))
+        colnames[mat_iid_rep_star] = paste("t=", times, sep="")
+        vetc_se = rep(NA, times=n_times)
+        names[vetc_se] = paste("t=", times, sep="")
+        vetc_sestar = rep(NA, times=n_times)
+        names[vetc_sestar] = paste("t=", times, sep="")
 
-    # save output for inference for AUC_2 when AUC_2 can be computed
-    if AUC_2[j]:
-        mat_iid_rep[, j] = out_iid[[j]]$iid_representation_AUC
-        vetc_se[j] = out_iid[[j]]$seAUC
-        vect_iid_comp_time[j] = out_iid[[j]]$computation_times
+    # compute iid for Kaplan Meier
+    kmf = KaplanMeierFitter()
+    MatInt0TcidhatMCksurEff = kmf.fit(T, event_observed=delta)
+    # MatInt0TcidhatMCksurEff = Compute.iid.KM(times=T, status=delta)
+    for j in range(1, n_times):
+        # compute iid representation when AUC can be computed
+        if AUC_1[j] or AUC_2[j]:
+            out_iid[[j]] = compute_iid_decomposition(t=times[j], n=n, cause=cause, F01t=CumInci[j], St=surv[j], weights,
+                                                     T, delta, marker, MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff)
+        else:
+            out_iid[[j]] = None
+        # browser()
+        # save output for inference for AUC_1 when AUC_1 can be computed
+        if AUC_1[j]:
+            mat_iid_rep_star[:, j] = out_iid[j].iid_representation_AUCstar
+        vetc_sestar[j] = out_iid[j].seAUCstar
+        vect_iid_comp_time[j] = out_iid[j].computation_times
 
-    inference = list(mat_iid_rep_2=mat_iid_rep,
-                      mat_iid_rep_1=mat_iid_rep_star,
-                      vect_sd_1=vetc_sestar,
-                      vect_sd_2=vetc_se,
-                      vect_iid_comp_time=vect_iid_comp_time
-                      )
+        # save output for inference for AUC_2 when AUC_2 can be computed
+        if AUC_2[j]:
+            mat_iid_rep[:, j] = out_iid[j].iid_representation_AUC
+        vetc_se[j] = out_iid[j].seAUC
+        vect_iid_comp_time[j] = out_iid[[j]].computation_times
+
+        inference = {'mat_iid_rep_2': mat_iid_rep,
+                     'mat_iid_rep_1': mat_iid_rep_star,
+                     'vect_sd_1': vetc_sestar,
+                     'vect_sd_2': vetc_se,
+                     'vect_iid_comp_time': vect_iid_comp_time
+                     }
 
     # output if there is competing risks or not
-    if (max(Stats[, 3]) == 0):
-    out = list(TP=TP, FP=FP_1, AUC=AUC_1, times=times,
-               CumulativeIncidence=CumInci, survProb=surv, n=n, Stats=Stats[, c(1, 2, 4)], weights = weights,
-                                                                                                     inference = inference, computation_time = difftime(
-        stop_computation_time, start_computation_time,
-    units = "secs"), iid = iid)
-    # class(out) < - "ipcwsurvivalROC"
-    print(out)
-else:
-    out = list(TP=TP, FP_1=FP_1, AUC_1=AUC_1, FP_2=FP_2, AUC_2=AUC_2, times=times,
-               CumulativeIncidence=CumInci, survProb=surv, n=n, Stats=Stats, weights=weights,
-               inference=inference,
-               computation_time=difftime(stop_computation_time, start_computation_time, units="secs"), iid=iid)
-
-    # class(out) < - "ipcwcompetingrisksROC"
-    print(out)
+    if max(Stats[:, 3]) == 0:
+        out = {'TP': TP, 'FP': FP_1, 'AUC': AUC_1, 'times': times, 'CumulativeIncidence': CumInci, 'survProb': surv,
+               'n': n, 'Stats': Stats[:, np.array(1, 2, 4)], 'weights': weights,
+               'inference': inference,
+               'computation_time': difftime(stop_computation_time, start_computation_time, units="secs"), 'iid': iid}
+        # class(out) < - "ipcwsurvivalROC"
+        print(out)
+    else:
+        out = {'TP': TP, 'FP_1': FP_1, 'AUC_1': AUC_1, 'FP_2': FP_2, 'AUC_2': AUC_2, 'times': times,
+               'CumulativeIncidence': CumInci, 'survProb': surv, 'n': n, 'Stats': Stats, 'weights': weights,
+               'inference': inference,
+               'computation_time': difftime(stop_computation_time, start_computation_time, units="secs"), 'iid': iid}
+        # class(out) < - "ipcwcompetingrisksROC"
+        print(out)
