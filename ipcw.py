@@ -108,11 +108,11 @@ class IPCW():
      plot(WKM2$fit,add=FALSE)
     """
 
-    def __init__(self, formula, data, method, args, times, subjectTimes, what, subjectTimesLag=1):
+    def __init__(self, formula, data, method, times, subjectTimes, what=None, args=None, subjectTimesLag=1):
         if not what:
-            raise ('Missing what: will produce IPCW.times and IPCW.subject.times.')
-        if not what or not what in ["IPCW.times", "IPCW.subject.times"]:
-            raise (len(times) > 0)
+            raise Exception('Missing what: will produce IPCW.times and IPCW.subject.times.')
+        #if not what or not what in ["IPCW.times", "IPCW.subject.times"]:
+        #    raise Exception(len(times) > 0)
 
         self.formula = formula
         self.data = data
@@ -122,7 +122,9 @@ class IPCW():
         self.subject_times = subjectTimes
         self.what = what
         self.lag = subjectTimesLag
-        self.methods = {'none': self.none(), 'rfsrc': self.rfsrc(), 'forest': self.forest, 'marginal': self.marginal(),
+        self.keep = None
+        self.lag = None
+        self.methods = {'none': self.none(), 'rfsrc': self.rfsrc(), 'forest': self.forest(), 'marginal': self.marginal(),
                         'nonpar': self.nonpar(), 'cox': self.cox()}
 
         # dummy variables for now
@@ -173,7 +175,7 @@ class IPCW():
         return {'times': self.times, 'subject_times': self.subject_times, 'method': self.method, 'call': None}
 
     # reverse Random Survival Forests
-    def rfsrc(self, formula, data, method, args, times, subject_times, lag, what, keep):
+    def rfsrc(self):
         # call = match.call()  ## needed for refit in crossvalidation loop
         EHF = {}
         # EHF = prodlim.EventHistory.frame(formula, data,specials=None, unspecialsDesign=False)
@@ -184,22 +186,22 @@ class IPCW():
 
         # R function update: e update function to start with a formula from a model that we have already fitted and to
         #  specify the terms that we want to add or remove (we need to use python statsmodel)
-        #wform = update(formula, "Surv(time,status)~.")
+        # wform = update(formula, "Surv(time,status)~.")
         ## require(randomForestSRC)
         # if not (NROW(na.omit(wdata)) > 0):
         #    raise("stop")
-        if not args:
+        if not self.args:
             ## args <- list(bootstrap="none",ntree=1000,nodesize=NROW(data)/2)
-            args = list(ntree=1000)
+            self.args = list(ntree=1000)
             ## if (is.null(args$importance) & (args$importance!="none"))
-            args.importance = "none"
+            self.args.importance = "none"
             # fit = do.call(randomForestSRC.rfsrc, c(list(wform, data=wdata), args))
             ## print(fit)
             # fit.call = None
             #  weigths at requested times
             #  predicted survival probabilities for all training subjects are in object$survival
             #  out-of-bag prediction in object$survival.oob
-        if "IPCW.times" in what:
+        if "IPCW.times" in self.what:
             pass
             # self.times = predictRisk(fit, newdata=wdata, times=times)
         else:
@@ -215,88 +217,85 @@ class IPCW():
             pos = []
         else:
             self.subject_times = None
-            out = {'times': self.times, 'subject.times': self.subject_times, 'method': method}
+            out = {'times': self.times, 'subject.times': self.subject_times, 'method': self.method}
 
-        out = self.output(out, keep, times, self.fit, self.call)
+        out = self.output(out, self.keep, self.times, self.fit, self.call)
         return out
 
-    def forest(self, formula, data, method, args, times, subject_times, lag, what, keep):
+    def forest(self):
         # call = match.call()  ## needed for refit in crossvalidation loop
-        EHF = prodlim.EventHistory.frame(formula,
-                                         data,
-                                         specials=None,
-                                         unspecialsDesign=False)
+        #EHF = prodlim.EventHistory.frame(self.formula,self.data,specials=None,unspecialsDesign=False)
         EHF = {}
-        #wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
+        # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
         wdata = {}
         ## wdata$status <- 1-wdata$status
-        #wform = update(formula, "Surv(time,status)~.")
+        # wform = update(formula, "Surv(time,status)~.")
         wform = {}
         ## require(randomForestSRC)
         # if not NROW(na.omit(wdata)) > 0):
         #    raise('Stop')
 
         if not self.args:
-            #args = list(ntree=1000)
-            args.importance = "none"
-            #fit = do.call(randomForestSRC.rfsrc, c(list(wform, data=wdata), args))
+            # args = list(ntree=1000)
+            self.args.importance = "none"
+            # fit = do.call(randomForestSRC.rfsrc, c(list(wform, data=wdata), args))
             fit = {}
             ## print(fit)
             fit.call = None
             # forest weights
-            #FW = predict(fit, newdata=wdata, forest.wt = TRUE).forest.wt
+            # FW = predict(fit, newdata=wdata, forest.wt = TRUE).forest.wt
             FW = {}
             #  weigths at requested times
             #  predicted survival probabilities for all training subjects are in object$survival
             #  out-of-bag prediction in object$survival.oob
         if "IPCW.times" in self.what:
             # reverse Kaplan-Meier with forest weigths
-            #self.times = apply(data, 1, lambda (i: predict(prodlim.prodlim(Hist(time, status)~1, data = wdata, reverse = TRUE, caseweights = FW[i,]), times = times)
+            # self.times = apply(data, 1, lambda (i: predict(prodlim.prodlim(Hist(time, status)~1, data = wdata, reverse = TRUE, caseweights = FW[i,]), times = times)
             self.times = []
         else:
             IPCW.times = None
             #  weigths at subject specific event times
 
         if "IPCW.subject.times" in self.what:
-            #self.subject_times = sapply(1:length(subject.times), lambda (i: prodlim:: predictSurvIndividual(prodlim::prodlim(Hist(time, status)~1, data = wdata, reverse = TRUE, caseweights = FW[i,]), lag = 1)[i])
+            # self.subject_times = sapply(1:length(subject.times), lambda (i: prodlim:: predictSurvIndividual(prodlim::prodlim(Hist(time, status)~1, data = wdata, reverse = TRUE, caseweights = FW[i,]), lag = 1)[i])
             self.subject_times = []
         else:
-            IPCW.subject.times = None
+            self.subject.times = None
 
         out = {'times': self.times,
                'subject_times': self.subject_times,
                'method': self.method}
 
-        out = self.output(out, keep, self.times, self.fit, self.call)
+        out = self.output(out, self.keep, self.times, self.fit, self.call)
 
         return out
 
     # reverse Kaplan-Meier
-    def marginal(self, formula, data, method, args, times, subject_times, lag, what, keep):
+    def marginal(self):
         # call = match.call()
-        #self.formula = update.formula(self.formula, "~1")
+        # self.formula = update.formula(self.formula, "~1")
         self.formula = self.formula
-        #fit = prodlim.prodlim(self.formula, data=data, reverse=True)
+        # fit = prodlim.prodlim(self.formula, data=data, reverse=True)
         fit = {}
 
         #  weights at requested times
-        if "IPCW.times" in what:
-            #self.times = predict(fit, newdata=data, times=times, level_chaos=1, mode="matrix", type="surv")
+        if "IPCW.times" in self.what:
+            # self.times = predict(fit, newdata=data, times=times, level_chaos=1, mode="matrix", type="surv")
             self.times = []
         else:
-            IPCW.times = None
+            self.times = None
 
         # weights at subject specific event times
         if "IPCW.subject.times" in what:
-            #self.subject_times = prodlim.predictSurvIndividual(fit, lag=self.lag)
+            # self.subject_times = prodlim.predictSurvIndividual(fit, lag=self.lag)
             self.subject_times = []
         else:
             self.subject_times = None
 
         out = {'times': self.times,
-                   'subject_times': self.subject_times,
-                   'method': self.method}
-        out = self.output(out, keep, self.times, self.fit, self.call)
+               'subject_times': self.subject_times,
+               'method': self.method}
+        out = self.output(out, self.keep, self.times, self.fit, self.call)
 
         # class(out) < - "IPCW"
         return out
@@ -306,19 +305,19 @@ class IPCW():
         ##   IPCW.times <- c(1,fit$surv)[prodlim::sindex(jump.times=fit$time,eval.times=times) +1] ## at all requested times
 
     # reverse Stone-Beran
-    def nonpar(self, formula, data, method, args, times, subject_times, lag, what, keep):
+    def nonpar(self):
         # call < - match.call()
-        #fit = prodlim.prodlim(formula, data=data, reverse=TRUE, bandwidth="smooth")
+        # fit = prodlim.prodlim(formula, data=data, reverse=TRUE, bandwidth="smooth")
         fit = {}
         #  weights at requested times
         if "IPCW.times" in self.what:
-            #self.times = predict(fit, newdata=self.data, times=self.times, level.chaos = 1, mode = "matrix", type = "surv")
+            # self.times = predict(fit, newdata=self.data, times=self.times, level.chaos = 1, mode = "matrix", type = "surv")
             self.times = []
         else:
             self.times = None
         # weights at subject specific event times
         if "IPCW.subject.times" in self.what:
-            #self.subject_times = prodlim.predictSurvIndividual(fit, lag=self.lag)
+            # self.subject_times = prodlim.predictSurvIndividual(fit, lag=self.lag)
             self.subject_times = []
         else:
             self.subject_times = None
@@ -327,37 +326,37 @@ class IPCW():
                'subject_times': self.subject_times,
                'method': self.method}
 
-        out = self.output(out, keep, times, self.fit, self.call)
+        out = self.output(out, self.keep, self.times, self.fit, self.call)
         # class(out) < - "IPCW"
         return out
 
     # reverse Cox via Harrel's package
-    def cox(self, formula, data, method, args, times, subject_times, lag, what, keep):
+    def cox(self):
         # call < - match.call()
         # EHF = prodlim.EventHistory.frame(formula, data, specials=c("strat"), stripSpecials=c("strat"), specialsDesign=False,unspecialsDesign=False)
         EHF = {}
         if not EHF['strat']:
-            #wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
+            # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
             wdata = {}
         else:
             wdata = {}
-            #wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design, EHF.strat))
+            # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design, EHF.strat))
         ## wdata <- data.frame(cbind(unclass(EHF$event.history),EHF$design))
         wdata.status = 1 - wdata.status
-        #wform = update(formula, "Surv(time,status)~.")
+        # wform = update(formula, "Surv(time,status)~.")
         wform = {}
-        #if not NROW(na.omit(wdata)) > 0):
+        # if not NROW(na.omit(wdata)) > 0):
         #    raise("Error")
         if not args:
             args = {'x': True, 'y': True, 'eps': 0.000001, 'surv': True}
 
-        #fit = do.call(rms.cph, c(list(wform, data=wdata), args))
+        # fit = do.call(rms.cph, c(list(wform, data=wdata), args))
         fit = {}
         ## fit <- rms::cph(wform,data=wdata,surv=TRUE,x=TRUE,y=TRUE)
 
         #  weights at requested times
         if "IPCW.times" in self.what:
-            #self.times = rms.survest(fit, newdata=wdata, times=times, se.fit = FALSE).surv
+            # self.times = rms.survest(fit, newdata=wdata, times=times, se.fit = FALSE).surv
             self.times = []
         else:
             self.times = None
@@ -365,10 +364,10 @@ class IPCW():
         # weights at subject specific event times
         if "IPCW.subject.times" in self.what:
             if self.lag == 1:
-                #self.subject_times = rms.survest(fit,times=self.subject_times - min(diff(c(0, unique(self.subject_times)))) / 2, what='parallel')
+                # self.subject_times = rms.survest(fit,times=self.subject_times - min(diff(c(0, unique(self.subject_times)))) / 2, what='parallel')
                 self.subject_times = []
             elif self.lag == 0:
-                #self.subject_times = rms.survest(fit, times=self.subject_times, what='parallel')
+                # self.subject_times = rms.survest(fit, times=self.subject_times, what='parallel')
                 self.subject_times = []
             else:
                 raise ("SubjectTimesLag must be 0 or 1")
@@ -378,7 +377,7 @@ class IPCW():
 
         out = {'times': self.times, 'subject_times': self.subject_times, 'method': self.method}
 
-        out = self.output(out, keep, times, self.fit, self.call)
+        out = self.output(out, self.keep, self.times, self.fit, self.call)
 
         # class(out) < - "IPCW"
         return out

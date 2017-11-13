@@ -3,7 +3,7 @@ import functools
 import pandas as pd
 from ipcw import IPCW
 from lifelines import KaplanMeierFitter
-#import iid_decomposition as compute_iid_decomposition
+# import iid_decomposition as compute_iid_decomposition
 import timeit
 
 
@@ -40,7 +40,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     if len(delta) != len(T) or len(marker) != len(T) or len(marker) != len(delta):
         raise ("lengths of vector T, delta and marker have to be equal\n")
 
-    if len(times)<1:
+    if len(times) < 1:
         raise ("Choose at least one time for computing the time-dependent AUC\n")
 
     if not weighting in ["marginal", "cox", "aalen"]:
@@ -69,8 +69,8 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     times = sorted(times)
 
     # add possibility to use days or month in times
-    times_names = ["t="+str(x) for x in times]
-    #times_names = paste(times, sep="t=")
+    times_names = ["t=" + str(x) for x in times]
+    # times_names = paste(times, sep="t=")
 
     # Outputs
     AUC_1 = np.zeros(n_times)  # I don't think these are necessary but will stay for now
@@ -85,24 +85,24 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
 
     stats_data = np.zeros((n_times, 4))
-    Stats = pd.DataFrame(stats_data, columns=["Cases", "survivor at t", "Other events at t", "Censored at t"], index=times_names)
+    Stats = pd.DataFrame(stats_data, columns=["Cases", "survivor at t", "Other events at t", "Censored at t"],
+                         index=times_names)
     # rownames(Stats) < -times_names # set the index to the times names?
 
     # computation of weights (1/2)
 
     # we need to order to use the pec::ipcw() function
     indices = np.argsort(T)
-    T = sorted(T)
-    delta = delta[indices]
-    marker = marker[indices]
+    T = np.array(sorted(T))
+    delta = delta.values[indices]
+    marker = marker.values[indices]
     weights = {}
     # use ipcw function from pec package
     if (weighting == "marginal"):
         Surv = "formula"  # Surv(failure_time, status)
-        #data.frame(failure_time=T, status=as.numeric(delta != 0))
-
-        data = pd.DataFrame([T, int(delta != 0)], columns=['failure_time', 'status'])
-        ipcw = IPCW(formula=Surv, data=data, method="marginal", times=times,subjectTimes=T, subjectTimesLag=1)  # DF failure_time=T, status=int(delta != 0)
+        ipcw_data = np.array((T, delta)).transpose()
+        df_ipcw_data = pd.DataFrame(data=ipcw_data, index=ipcw_data[:, 0], columns=['failure_time', 'status'])
+        ipcw = IPCW(formula=Surv, data=df_ipcw_data, method="marginal", times=times, subjectTimes=T, what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
         weights = ipcw.fit()
 
     if (weighting == "cox"):
