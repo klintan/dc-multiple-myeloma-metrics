@@ -1,7 +1,7 @@
 from sklearn.metrics import auc, recall_score, matthews_corrcoef, f1_score, average_precision_score
 from lifelines.utils import concordance_index
 import numpy as np
-import timeROC as timeROCPackage
+from timeROC import timeROC as timeROCPackage
 
 class Calculate():
     def __init__(self):
