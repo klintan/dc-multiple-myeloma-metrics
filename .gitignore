@@ -120,3 +120,5 @@ pip-selfcheck.json
 
 .idea/
 
+test_data.csv
+all_data.csv

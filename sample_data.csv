@@ -1,0 +1,3 @@
+Patient,D_Age,D_Gender,D_OS,D_OS_FLAG,D_PFS,D_PFS_FLAG,D_ISS,HR_FLAG
+A100,64,Male,1232.0,0,731.0,1,2.0,False
+A101,50,Male,2106.0,0,2207.0,0,1.0,False

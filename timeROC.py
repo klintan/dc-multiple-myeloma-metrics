@@ -216,8 +216,9 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     for j in range(1, n_times):
         # compute iid representation when AUC can be computed
         if AUC_1[j] or AUC_2[j]:
-            out_iid[[j]] = compute_iid_decomposition(t=times[j], n=n, cause=cause, F01t=CumInci[j], St=surv[j], weights,
-                                                     T, delta, marker, MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff)
+            out_iid[[j]] = compute_iid_decomposition(weights, T, delta, marker, t=times[j], n=n, cause=cause,
+                                                     F01t=CumInci[j], St=surv[j],
+                                                     MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff)
         else:
             out_iid[[j]] = None
         # browser()
