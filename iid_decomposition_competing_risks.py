@@ -1,24 +1,28 @@
 import pandas as pd
 import numpy as np
-
-#  technical details
-# t                       : time at which we compute the i.i.d decomposition (Influence function)
-# n                       : sample size
-# cause                   : the value that indicates the main event of interest
-# F01t                    : the cumulative incidence function of the main event at time t
-# weights                 : object weights, output of the main function, order by order(T) (by default with ipcw() function of package pec)
-# T                       : vector of observed failure times, order by order(T)
-# delta                   : vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...),order by order(T)
-# marker                  : vector ofmarker values,order by order(T)
-# times                   : vector of times for wich we compute the AUCs
-#
-## CAUTION : T,delta,marker,weights should be order by order(T)
+import timeit
 
 def difftime():
     pass
 
 def compute_iid_decomposition_competing_risks(t,n,cause,F01t,St,weights,T,delta,marker,MatInt0TcidhatMCksurEff):
-    start_total = Sys.time()
+    """
+    
+    # CAUTION : T,delta,marker,weights should be order by order(T)
+    
+    :param t: time at which we compute the i.i.d decomposition (Influence function)
+    :param n: sample size
+    :param cause: the value that indicates the main event of interest
+    :param F01t: the cumulative incidence function of the main event at time t
+    :param St: object weights, output of the main function, order by order(T) (by default with ipcw() function of package pec)
+    :param weights: vector of observed failure times, order by order(T)
+    :param T: vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...),order by order(T)
+    :param delta: vector ofmarker values,order by order(T)
+    :param marker: vector of times for wich we compute the AUCs
+    :param MatInt0TcidhatMCksurEff: 
+    :return: 
+    """
+    start_total = timeit.default_timer()
     # indicator vectors
     Cases = (T< t & delta==cause)
     Controls_1 = (T> t )

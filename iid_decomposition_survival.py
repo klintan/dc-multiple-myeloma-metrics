@@ -1,24 +1,30 @@
-# {{{ technical details
-# t                       : time at which we compute the i.i.d decomposition (Influence function)
-# n                       : sample size
-# cause                   : the value that indicates the main event of interest
-# F01t                    : the cumulative incidence function of the main event at time t
-# weights                 : object weights, output of the main function, order by order(T) (by default with ipcw() function of package pec)
-# T                       : vector of observed failure times, order by order(T)
-# delta                   : vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...),order by order(T)
-# marker                  : vector ofmarker values,order by order(T)
-# times                   : vector of times for wich we compute the AUCs
-#
-## CAUTION : T,delta,marker,weights should be order by order(T)
-#
-# }}}
+import timeit
+
+
 
 def difftime():
     pass
 
 
 def compute_iid_decomposition_survival(t, n, cause, F01t, St, weights, T, delta, marker, MatInt0TcidhatMCksurEff):
-    start_total = Sys.time()
+    """
+    # CAUTION : T,delta,marker,weights should be order by order(T)
+
+    :param t: time at which we compute the i.i.d decomposition (Influence function)
+    :param n: sample size
+    :param cause: the value that indicates the main event of interest
+    :param F01t: the cumulative incidence function of the main event at time t
+    :param St: object weights, output of the main function, order by order(T) (by default with ipcw() function of package pec)
+    :param weights: vector of observed failure times, order by order(T)
+    :param T: vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...),order by order(T)
+    :param delta: vector ofmarker values,order by order(T)
+    :param marker: vector of times for wich we compute the AUCs
+    :param MatInt0TcidhatMCksurEff:
+    :return:
+    """
+
+    start_total = timeit.default_timer()
+
     # indicator vectors
     Cases = (T < t & delta == cause)
     Controls_1 = (T > t)
@@ -42,8 +48,8 @@ def compute_iid_decomposition_survival(t, n, cause, F01t, St, weights, T, delta,
     # function that eats the matrix W1 (defined just after) that depends on subject i and returns
     # the vector of {\hat{h}_{tij}}_1
     def htij1(V, tps=t):
-        as.numeric(V[, 1] > tps)*(as.numeric(V[, 4] > V[, 2]) + 0.5 *as.numeric(V[, 4] == V[, 2])) *(V[, 3]*V[, 5])*(
-        n * n)
+        pass
+        #return as.numeric(V[, 1] > tps)*(as.numeric(V[, 4] > V[, 2]) + 0.5 *as.numeric(V[, 4] == V[, 2])) *(V[, 3]*V[, 5])*(n * n)
 
     # compute frequencies of cases and controls to define
     # the size of the matrix  Mathtij1
@@ -55,11 +61,11 @@ def compute_iid_decomposition_survival(t, n, cause, F01t, St, weights, T, delta,
     Mathtij1 = matrix(NA, nb_Controls_1, nb_Cases)
     # loop on all cases i. We loop only on Cases to save computation time !
     for i in range(which_Cases):
-        W1 = cbind(Mat_data_cont1[, c("T", "marker")], rep(Mat_data[i, c("Weights_cases")], nb_Controls_1), rep(
-            Mat_data[i, c("marker")], nb_Controls_1), Mat_data_cont1[, c("Weights_controls_1")])
+        #W1 = cbind(Mat_data_cont1[, c("T", "marker")], rep(Mat_data[i, c("Weights_cases")], nb_Controls_1), rep(Mat_data[i, c("marker")], nb_Controls_1), Mat_data_cont1[, c("Weights_controls_1")])
+        W1 = {}
         # fill the column i of  Mathtij1 and  Mathtij2
-        Mathtij1[, which(i == which_Cases)] = htij1(W1)
-
+        #Mathtij1[, which(i == which_Cases)] = htij1(W1)
+        Mathtij1 = {}
     # matrix Mathtij1  : i for columns, j for rows
     # browser() # nice function for debugging !
     # stop_htij=Sys.time()
@@ -67,16 +73,17 @@ def compute_iid_decomposition_survival(t, n, cause, F01t, St, weights, T, delta,
     # compute \hat{h}_t
     ht = (sum(Mathtij1)) / (n * n)
     # vector of \hat{f}_{i1t}
-    vect_dit =as.numeric(Mat_data[, c("T")] <= t) * as.numeric(Mat_data[, c("delta")] == cause)*Mat_data[, c(
-        "Weights_cases")]*n
+    #vect_dit =as.numeric(Mat_data[, c("T")] <= t) * as.numeric(Mat_data[, c("delta")] == cause)*Mat_data[, c("Weights_cases")]*n
+    vect_dit = {}
     # We can check we have F01t by mean(vect_dit)
     # print("F01t ??")
     # print(c(mean(vect_dit),F01t))
-    # }}}
-    # {{{ Final step : to compute iid representation of AUC^*(t)
-    start_iid_AUC1 = Sys.time()
+
+    #  Final step : to compute iid representation of AUC^*(t)
+    start_iid_AUC1 = Stimeit.default_timer()
     # Compute the vecor of all sum_{i=1}^n of {\hat{h}_{tij}}_1 for all j
-    colSums_Mathtij1 = rep(0, n)  # initialise at 0
+    #colSums_Mathtij1 = rep(0, n)  # initialise at 0
+    colSums_Mathtij1 = {}
     colSums_Mathtij1[which_Cases] = colSums(Mathtij1)  # when i is a case,  then we sum the column of  Mathtij1
     # Compute the vecor of all sum_{j=1}^n of {\hat{h}_{tij}}_1 for all i
     rowSums_Mathtij1 = rep(0, n)  # initialize at 0
@@ -106,7 +113,7 @@ def compute_iid_decomposition_survival(t, n, cause, F01t, St, weights, T, delta,
     # we compute the standard error of the AUC estimator
     seAUCstar = sd(hatIFstar) / sqrt(n)
     # browser() # nice function for debugging
-    stop_total = Sys.time()
+    stop_total = timeit.default_timer()
     total_time = difftime(stop_total, start_total, units="secs")
     total_time_iid_AUC1 = difftime(stop_iid_AUC1, start_iid_AUC1, units="secs")
     computation_times = c(total_time)
