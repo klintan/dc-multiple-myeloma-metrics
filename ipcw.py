@@ -182,7 +182,7 @@ class IPCW():
         # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
         # wdata <- as.data.frame(EHF)
         wdata = pd.DataFrame(EHF)
-        wdata.status = 1 - wdata.status
+        #wdata.status = 1 - wdata.status
 
         # R function update: e update function to start with a formula from a model that we have already fitted and to
         #  specify the terms that we want to add or remove (we need to use python statsmodel)
@@ -191,14 +191,11 @@ class IPCW():
         # if not (NROW(na.omit(wdata)) > 0):
         #    raise("stop")
         if not self.args:
-            ## args <- list(bootstrap="none",ntree=1000,nodesize=NROW(data)/2)
-            self.args = list(ntree=1000)
-            ## if (is.null(args$importance) & (args$importance!="none"))
-            self.args.importance = "none"
+            self.args = {'ntree':1000, 'importance': None, 'bootstrap':None, 'nodesize': len(self.data.index)/2}
+
             # fit = do.call(randomForestSRC.rfsrc, c(list(wform, data=wdata), args))
-            ## print(fit)
             # fit.call = None
-            #  weigths at requested times
+            #  weights at requested times
             #  predicted survival probabilities for all training subjects are in object$survival
             #  out-of-bag prediction in object$survival.oob
         if "IPCW.times" in self.what:
@@ -206,7 +203,7 @@ class IPCW():
             # self.times = predictRisk(fit, newdata=wdata, times=times)
         else:
             self.times = None
-        # weigths at subject specific event times
+        # weights at subject specific event times
         if "IPCW.subject.times" in what:
             # pmat = fit.survival
             # jtimes = fit.time.interest
@@ -236,8 +233,7 @@ class IPCW():
         #    raise('Stop')
 
         if not self.args:
-            # args = list(ntree=1000)
-            self.args.importance = "none"
+            args = {'ntree':1000, 'importance':None}
             # fit = do.call(randomForestSRC.rfsrc, c(list(wform, data=wdata), args))
             fit = {}
             ## print(fit)
@@ -245,16 +241,16 @@ class IPCW():
             # forest weights
             # FW = predict(fit, newdata=wdata, forest.wt = TRUE).forest.wt
             FW = {}
-            #  weigths at requested times
+            #  weights at requested times
             #  predicted survival probabilities for all training subjects are in object$survival
             #  out-of-bag prediction in object$survival.oob
         if "IPCW.times" in self.what:
-            # reverse Kaplan-Meier with forest weigths
+            # reverse Kaplan-Meier with forest weights
             # self.times = apply(data, 1, lambda (i: predict(prodlim.prodlim(Hist(time, status)~1, data = wdata, reverse = TRUE, caseweights = FW[i,]), times = times)
             self.times = []
         else:
             IPCW.times = None
-            #  weigths at subject specific event times
+            #  weights at subject specific event times
 
         if "IPCW.subject.times" in self.what:
             # self.subject_times = sapply(1:length(subject.times), lambda (i: prodlim:: predictSurvIndividual(prodlim::prodlim(Hist(time, status)~1, data = wdata, reverse = TRUE, caseweights = FW[i,]), lag = 1)[i])
@@ -270,9 +266,8 @@ class IPCW():
 
         return out
 
-    # reverse Kaplan-Meier
+    # reverse Kaplan-Meier, this is the one used in Metrics so focus on this.
     def marginal(self):
-        # call = match.call()
         # self.formula = update.formula(self.formula, "~1")
         self.formula = self.formula
         # fit = prodlim.prodlim(self.formula, data=data, reverse=True)

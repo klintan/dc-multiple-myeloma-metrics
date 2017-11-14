@@ -5,7 +5,7 @@ from ipcw import IPCW
 from lifelines import KaplanMeierFitter
 # import iid_decomposition as compute_iid_decomposition
 import timeit
-
+import statsmodels.api as sm
 
 def reduce_concat(x, sep=""):
     return functools.reduce(lambda x, y: str(x) + sep + str(y), x)
@@ -99,9 +99,10 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     weights = {}
     # use ipcw function from pec package
     if (weighting == "marginal"):
-        Surv = "formula"  # Surv(failure_time, status)
         ipcw_data = np.array((T, delta)).transpose()
         df_ipcw_data = pd.DataFrame(data=ipcw_data, index=ipcw_data[:, 0], columns=['failure_time', 'status'])
+
+        Surv = sm.SurvfuncRight(df_ipcw_data['failure_time'], df_ipcw_data['status']) # should this be a cox formula ?
         ipcw = IPCW(formula=Surv, data=df_ipcw_data, method="marginal", times=times, subjectTimes=T, what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
         weights = ipcw.fit()
 
