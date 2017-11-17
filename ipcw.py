@@ -1,5 +1,5 @@
 import pandas as pd
-import lifelines
+from lifelines import KaplanMeierFitter
 import numpy as np
 import statsmodels.formula.api as smf
 
@@ -130,6 +130,7 @@ class IPCW():
         # dummy variables for now
         self.call = {}
         self.fit = {}
+        self.kmf = KaplanMeierFitter()
 
         # check input arguments
         self.args_check()
@@ -204,7 +205,7 @@ class IPCW():
         else:
             self.times = None
         # weights at subject specific event times
-        if "IPCW.subject.times" in what:
+        if "IPCW.subject.times" in self.what:
             # pmat = fit.survival
             # jtimes = fit.time.interest
             # self.subject.times = pd.apply(1:len(subject.times), lambda(i: Ci = subject.times[i]))
@@ -270,8 +271,22 @@ class IPCW():
     def marginal(self):
         # self.formula = update.formula(self.formula, "~1")
         self.formula = self.formula
+
+        #reverse KM estimator (Schemper and Smith, 1996), that is the KM method with the
+        # event indicator reversed so that the outcome of interest becomes being censored.
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2394262/
+        # http://staff.pubhealth.ku.dk/~tag/Teaching/share/R-tutorials/SurvivalAnalysis.html
+        # An approximation of this so-called reverse Kaplan-Meier can be obtained by reversing the event indicator
+        # so that the outcome of interest becomes being censored.
+
+        
+
+        self.kmf.fit(self.data['T'].values, event_observed=self.data['failure_time'])
+        self.kmf.survival_function_
+        self.kmf.median_
         # fit = prodlim.prodlim(self.formula, data=data, reverse=True)
         fit = {}
+
 
         #  weights at requested times
         if "IPCW.times" in self.what:
