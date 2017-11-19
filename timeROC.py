@@ -7,6 +7,7 @@ from lifelines import KaplanMeierFitter
 import timeit
 import statsmodels.api as sm
 
+
 def reduce_concat(x, sep=""):
     return functools.reduce(lambda x, y: str(x) + sep + str(y), x)
 
@@ -97,22 +98,24 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     delta = delta.values[indices]
     marker = marker.values[indices]
     weights = {}
-    # use ipcw function from pec package
-    if (weighting == "marginal"):
-        ipcw_data = np.array((T, delta)).transpose()
-        df_ipcw_data = pd.DataFrame(data=ipcw_data, index=ipcw_data[:, 0], columns=['failure_time', 'status'])
+    IPCW_data = np.array((T, delta)).transpose()
 
-        Surv = sm.SurvfuncRight(df_ipcw_data['failure_time'], df_ipcw_data['status']) # should this be a cox formula ?
-        ipcw = IPCW(formula=Surv, data=df_ipcw_data, method="marginal", times=times, subjectTimes=T, what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
+    # use ipcw function from pec package
+    if weighting == "marginal":
+        df_ipcw_data = pd.DataFrame(data=IPCW_data, index=IPCW_data[:, 0], columns=['failure_time', 'status'])
+        ipcw = IPCW(formula=None, data=df_ipcw_data, method="marginal", times=times, subjectTimes=T,
+                    what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
         weights = ipcw.fit()
 
-    if (weighting == "cox"):
-        raise ("Cox weighing not yet supported")
-    if (weighting == "aalen"):
-        raise ("Aalen weighing not yet supported")
+    if weighting == "cox":
+        raise NotImplementedError
+
+    if weighting == "aalen":
+        raise NotImplementedError
 
     # we order by marker values (in order to compute Se and Sp)
     order_marker = sorted(marker)
+
     # concat by column all of them using order marker (to get corresponding values in order)
     Mat_data = pd.DataFrame([T, delta, marker][order_marker,], columns=["T", "delta",
                                                                         "marker"])  # all matrices should be defined as Pandas dataframes instead

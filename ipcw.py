@@ -2,7 +2,7 @@ import pandas as pd
 from lifelines import KaplanMeierFitter
 import numpy as np
 import statsmodels.formula.api as smf
-
+from lifelines import datasets
 
 class IPCW():
     """
@@ -122,15 +122,16 @@ class IPCW():
         self.subject_times = subjectTimes
         self.what = what
         self.lag = subjectTimesLag
-        self.keep = None
+        self.keep = []
         self.lag = None
-        self.methods = {'none': self.none(), 'rfsrc': self.rfsrc(), 'forest': self.forest(), 'marginal': self.marginal(),
-                        'nonpar': self.nonpar(), 'cox': self.cox()}
-
         # dummy variables for now
         self.call = {}
         self.fit = {}
         self.kmf = KaplanMeierFitter()
+        self.methods = {'none': self.none(), 'rfsrc': self.rfsrc(), 'forest': self.forest(), 'marginal': self.marginal(),
+                        'nonpar': self.nonpar(), 'cox': self.cox()}
+
+
 
         # check input arguments
         self.args_check()
@@ -141,13 +142,17 @@ class IPCW():
 
     @staticmethod
     def output(out, keep, times, fit, call):
+        new_out = {}
         if "call" in keep:
-            output = c(out, list(call=call))
+            print("call")
+            #output = c(out, list(call=call))
         if "times" in keep:
-            output = c(out, list(times=times))
+            print("call")
+            #output = c(out, list(times=times))
         if "fit" in keep:
-            output = c(out, list(fit=fit))
-        return output
+            print("call")
+            #output = c(out, list(fit=fit))
+        return new_out
 
     def args_check(self):
         if not self.lag:
@@ -178,6 +183,7 @@ class IPCW():
     # reverse Random Survival Forests
     def rfsrc(self):
         # call = match.call()  ## needed for refit in crossvalidation loop
+        out = {}
         EHF = {}
         # EHF = prodlim.EventHistory.frame(formula, data,specials=None, unspecialsDesign=False)
         # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
@@ -269,24 +275,8 @@ class IPCW():
 
     # reverse Kaplan-Meier, this is the one used in Metrics so focus on this.
     def marginal(self):
-        # self.formula = update.formula(self.formula, "~1")
-        self.formula = self.formula
-
-        #reverse KM estimator (Schemper and Smith, 1996), that is the KM method with the
-        # event indicator reversed so that the outcome of interest becomes being censored.
-        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2394262/
-        # http://staff.pubhealth.ku.dk/~tag/Teaching/share/R-tutorials/SurvivalAnalysis.html
-        # An approximation of this so-called reverse Kaplan-Meier can be obtained by reversing the event indicator
-        # so that the outcome of interest becomes being censored.
-
-        
-
-        self.kmf.fit(self.data['T'].values, event_observed=self.data['failure_time'])
-        self.kmf.survival_function_
-        self.kmf.median_
-        # fit = prodlim.prodlim(self.formula, data=data, reverse=True)
-        fit = {}
-
+        #reverse KaplanMeier
+        self.kmf.fit(self.data['failure_time'], event_observed=self.data['status'].values, reverse=True)
 
         #  weights at requested times
         if "IPCW.times" in self.what:
@@ -296,7 +286,7 @@ class IPCW():
             self.times = None
 
         # weights at subject specific event times
-        if "IPCW.subject.times" in what:
+        if "IPCW.subject.times" in self.what:
             # self.subject_times = prodlim.predictSurvIndividual(fit, lag=self.lag)
             self.subject_times = []
         else:
