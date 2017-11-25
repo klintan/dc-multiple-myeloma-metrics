@@ -88,11 +88,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     stats_data = np.zeros((n_times, 4))
     Stats = pd.DataFrame(stats_data, columns=["Cases", "survivor at t", "Other events at t", "Censored at t"],
                          index=times_names)
-    # rownames(Stats) < -times_names # set the index to the times names?
 
-    # computation of weights (1/2)
-
-    # we need to order to use the pec::ipcw() function
     indices = np.argsort(T)
     T = np.array(sorted(T))
     delta = delta.values[indices]

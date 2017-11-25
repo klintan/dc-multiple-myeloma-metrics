@@ -126,10 +126,9 @@ class IPCW():
         self.lag = None
         # dummy variables for now
         self.call = {}
-        self.fit = {}
         self.kmf = KaplanMeierFitter()
-        self.methods = {'none': self.none(), 'rfsrc': self.rfsrc(), 'forest': self.forest(), 'marginal': self.marginal(),
-                        'nonpar': self.nonpar(), 'cox': self.cox()}
+        self.methods = {'none': self.none, 'rfsrc': self.rfsrc, 'forest': self.forest, 'marginal': self.marginal,
+                        'nonpar': self.nonpar, 'cox': self.cox}
 
 
 
@@ -138,7 +137,7 @@ class IPCW():
 
     def fit(self):
         run_method = self.methods[self.method]
-        run_method(self)
+        return run_method()
 
     @staticmethod
     def output(out, keep, times, fit, call):
@@ -276,10 +275,14 @@ class IPCW():
     # reverse Kaplan-Meier, this is the one used in Metrics so focus on this.
     def marginal(self):
         #reverse KaplanMeier
-        self.kmf.fit(self.data['failure_time'], event_observed=self.data['status'].values, reverse=True)
+        self.data['status'] = self.data['status'].values.astype(int) ^ 1
 
         #  weights at requested times
         if "IPCW.times" in self.what:
+            kmf = KaplanMeierFitter()
+            kmf.fit(self.data['failure_time'], event_observed=self.data['status'].values)
+            kmf.predict(self.data['failure_time'])
+            weights = kmf.conditional_time_to_event_(self.times)
             # self.times = predict(fit, newdata=data, times=times, level_chaos=1, mode="matrix", type="surv")
             self.times = []
         else:
@@ -334,20 +337,21 @@ class IPCW():
     def cox(self):
         # call < - match.call()
         # EHF = prodlim.EventHistory.frame(formula, data, specials=c("strat"), stripSpecials=c("strat"), specialsDesign=False,unspecialsDesign=False)
+        wdata = {}
         EHF = {}
-        if not EHF['strat']:
+        if not 'strat' in EHF:
             # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design))
-            wdata = {}
+            wdata = {'status': 1}
         else:
-            wdata = {}
+            wdata = {'status': 1}
             # wdata = data.frame(cbind(unclass(EHF.event.history), EHF.design, EHF.strat))
         ## wdata <- data.frame(cbind(unclass(EHF$event.history),EHF$design))
-        wdata.status = 1 - wdata.status
+        wdata['status'] = 1 - wdata['status']
         # wform = update(formula, "Surv(time,status)~.")
         wform = {}
         # if not NROW(na.omit(wdata)) > 0):
         #    raise("Error")
-        if not args:
+        if not self.args:
             args = {'x': True, 'y': True, 'eps': 0.000001, 'surv': True}
 
         # fit = do.call(rms.cph, c(list(wform, data=wdata), args))
@@ -370,7 +374,7 @@ class IPCW():
                 # self.subject_times = rms.survest(fit, times=self.subject_times, what='parallel')
                 self.subject_times = []
             else:
-                raise ("SubjectTimesLag must be 0 or 1")
+                raise ValueError("SubjectTimesLag must be 0 or 1")
 
         else:
             self.subject_times = None
@@ -379,41 +383,4 @@ class IPCW():
 
         out = self.output(out, self.keep, self.times, self.fit, self.call)
 
-        # class(out) < - "IPCW"
         return out
-
-        # reverse Aalen method via the timereg package
-        ## ipcw.aalen <- function(formula,data,method,args,times,subject.times,lag,what,keep){
-        ## if (missing(lag)) lag=1
-        ## if (missing(what)) what=c("IPCW.times","IPCW.subject.times")
-        ## call <- match.call()
-        ## EHF <- prodlim::EventHistory.frame(formula,
-        ## data,
-        ## specials=NULL,
-        ## unspecialsDesign=FALSE)
-        ## wdata <- data.frame(cbind(unclass(EHF$event.history),EHF$design))
-        ## ## wdata <- as.data.frame(EHF)
-        ## wdata$status <- 1-wdata$status
-        ## wform <- update(formula,"Surv(time,status)~.")
-        ## stopifnot(NROW(na.omit(wdata))>0)
-        ## fit <- do.call(timereg::aalen,list(formula=formula,data=wdata,n.sim=0))
-        ## fit$call <- NULL
-        ## #  weigths at requested times
-        ## if (match("IPCW.times",what,nomatch=FALSE)){
-        ## IPCW.times <- predictRisk(fit,newdata=wdata,times=times)
-        ## }  else {
-        ## IPCW.times <- NULL
-        ## }
-        ## if (match("IPCW.subject.times",what,nomatch=FALSE)){
-        ## if (lag==1)
-        ## IPCW.subject.times <- diag(predictRisk(fit,newdata=data,times=pmax(0,subject.times-min(diff(unique(subject.times)))/2)))
-        ## else if (lag==0)
-        ## IPCW.subject.times <- diag(predictRisk(fit,newdata=data,times=subject.times))
-        ## else stop("SubjectTimesLag must be 0 or 1")
-        ## }
-        ## else
-        ## IPCW.subject.times <- NULL
-        ## out <- list(times=times,IPCW.times=IPCW.times,IPCW.subject.times=IPCW.subject.times,fit=fit,call=call,method=method)
-        ## class(out) <- "IPCW"
-        ## out
-        ## }
