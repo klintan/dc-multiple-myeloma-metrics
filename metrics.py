@@ -81,6 +81,13 @@ class Calculate():
 
     ##### simple wrapper to faciliate bootstrapping later
     def weightedMetrics(self, singleSubPredMat, PFStime, pfs_flag, study):
+        """
+        :param singleSubPredMat: Full prediction matrix with columns: study,patient,predictionscore,highriskflag
+        :param PFStime: actual time to failure
+        :param pfs_flag: actual observed event flag
+        :param study: the study str
+        :return:
+        """
         pass
         # rawscore < - singleSubPredMat$predictionscore
         # highrisk < - as.numeric(as.logical(singleSubPredMat$highriskflag));

@@ -15,4 +15,8 @@ pred['prediction'] = pred['D_PFS'].values.argsort()
 pred['prediction'] = scaler.fit_transform(pred['prediction'].values.reshape(-1, 1))
 
 # predicted: continuous prediction score for high risk flag (patient progression within < 18 month.)
-calculate.timeROC(predicted=pred['HR_FLAG'], D_PFS=test['D_PFS'], D_PFS_FLAG=test['D_PFS_FLAG'])
+calculate.timeROC(predicted=pred['D_PFS'], D_PFS=test['D_PFS'], D_PFS_FLAG=test['D_PFS_FLAG'])
+
+#predict all metrics
+
+calculate.weightedMetrics(singleSubPredMat=pred, PFStime=test['D_PFS'], pfs_flag, study)

@@ -123,3 +123,4 @@ pip-selfcheck.json
 test_data.csv
 all_data.csv
 share/
+predictions.csv
