@@ -26,13 +26,10 @@ colnames(delta) <- c("delta")
 
 #T <- T[order(T$T),]
 
-
-print(T)
 order_T = order(T)
 print(order_T)
 T <- T[order_T,]
 delta <- delta[order_T,]
-
 
 # reverse the censored events (making them non-censored)
 df = data.frame(failure_time=T,status=as.numeric(delta!=0))

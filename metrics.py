@@ -80,7 +80,7 @@ class Calculate():
         # return (list(auc, bac, mcc, f1, timeROC, iAUC, prAUC))
 
     ##### simple wrapper to faciliate bootstrapping later
-    def weightedMetrics(self, singleSubPredMat, PFStime, pfs_flag, study):
+    def weightedMetrics(self, singleSubPredMat, PFStime, pfs_flag, study=None):
         """
         :param singleSubPredMat: Full prediction matrix with columns: study,patient,predictionscore,highriskflag
         :param PFStime: actual time to failure

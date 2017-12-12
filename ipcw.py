@@ -280,9 +280,9 @@ class IPCW():
         #  weights at requested times
         if "IPCW.times" in self.what:
             kmf = KaplanMeierFitter()
-            kmf.fit(self.data['failure_time'], event_observed=self.data['status'].values)
-            kmf.predict(self.data['failure_time'])
-            weights = kmf.conditional_time_to_event_(self.times)
+            kmf.fit(self.data['failure_time'], event_observed=self.data['status'].values, timeline=self.times)
+            self.weights = np.round(kmf.predict(self.times), decimals=4)
+            #self.weights = kmf.conditional_time_to_event_(self.times)
             # self.times = predict(fit, newdata=data, times=times, level_chaos=1, mode="matrix", type="surv")
             self.times = []
         else:
@@ -301,7 +301,7 @@ class IPCW():
         out = self.output(out, self.keep, self.times, self.fit, self.call)
 
         # class(out) < - "IPCW"
-        return out
+        return self.weights
         ##   locsubject.times <- match(subject.times,fit$time,nomatch=NA)
         ##   if (any(is.na(locsubject.times))) stop("Can not locate all individual observation times" )
         ##   IPCW.subject.times <- c(1,fit$surv)[locsubject.times] ## at (subject.times_i-)
