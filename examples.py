@@ -40,7 +40,7 @@ ipcw = IPCW(formula=None, data=df_ipcw_data, method="marginal", times=times, sub
 weights = ipcw.marginal()
 print(weights)
 # predicted: continuous prediction score for high risk flag (patient progression within < 18 month.)
-#calculate.timeROC(predicted=pred['D_PFS'], D_PFS=test['D_PFS'], D_PFS_FLAG=test['D_PFS_FLAG'])
+calculate.timeROC(predicted=pred['D_PFS'], D_PFS=test['D_PFS'], D_PFS_FLAG=test['D_PFS_FLAG'])
 
 # predict all metrics
 #calculate.weightedMetrics(singleSubPredMat=pred, PFStime=test['D_PFS'], pfs_flag=test['D_PFS_FLAG'])

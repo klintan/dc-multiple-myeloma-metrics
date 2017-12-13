@@ -63,6 +63,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     n = len(T)
     n_marker = len(set(marker))  # get all unique markers ?
     n_times = len(times)
+
     if n_times == 1:
         times = [0] + times
         n_times = 2  # trick to use ipcw.cox() even if there is only one time
@@ -84,7 +85,6 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     # names(CumInci) < -times_names
     # names(surv) < -times_names
 
-
     stats_data = np.zeros((n_times, 4))
     Stats = pd.DataFrame(stats_data, columns=["Cases", "survivor at t", "Other events at t", "Censored at t"],
                          index=times_names)
@@ -95,53 +95,69 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     marker = marker.values[indices]
     weights = {}
     IPCW_data = np.array((T, delta)).transpose()
+    temp_data = np.array((T, delta, marker)).transpose()
 
     # use ipcw function from pec package
     if weighting == "marginal":
         df_ipcw_data = pd.DataFrame(data=IPCW_data, index=IPCW_data[:, 0], columns=['failure_time', 'status'])
         ipcw = IPCW(formula=None, data=df_ipcw_data, method="marginal", times=times, subjectTimes=T,
                     what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
-        weights = ipcw.fit()
+        weights = ipcw.marginal()
 
     if weighting == "cox":
-        raise NotImplementedError
+        raise NotImplementedError('Cox weighing not yet supported')
 
     if weighting == "aalen":
-        raise NotImplementedError
+        raise NotImplementedError('Aalen weighing not yet supported')
 
     # we order by marker values (in order to compute Se and Sp)
     order_marker = sorted(marker)
 
     # concat by column all of them using order marker (to get corresponding values in order)
-    Mat_data = pd.DataFrame([T, delta, marker][order_marker,], columns=["T", "delta",
-                                                                        "marker"])  # all matrices should be defined as Pandas dataframes instead
+    # Mat_data <- cbind(T, delta, marker)[order_marker, ]
+    # colnames(Mat_data) <- c("T", "delta", "marker")
+    Mat_data = pd.DataFrame(temp_data, columns=["T", "delta",
+                                                "marker"])  # all matrices should be defined as Pandas dataframes instead
 
-    # Create some weights
-    Weights_cases_all = 1 / (weights.subjectTimes * n)
-    Weights_cases_all = Weights_cases_all[order_marker]
+    # Weights for all cases
+    Weights_cases_all = 1 / (Mat_data['T'].values * n)
+
+    # sort, this is probably unnecessary so lets skip for now.
+    # Weights_cases_all = Weights_cases_all[order_marker]
 
     #  Make TP and FP outputs if needed
-    if ROC == True:
-        FP_1 = np.matrix(np.zeros(n_marker + 1), np.zeros(n_times))
-        TP = np.matrix(np.zeros(n_marker + 1), np.zeros(n_times))
-        FP_2 = np.matrix(np.zeros(n_marker + 1), np.zeros(n_times))
+    if ROC:
+        FP_1 = np.zeros(((n_marker + 1), n_times))
+        TP = np.zeros(((n_marker + 1), n_times))
+        FP_2 = np.zeros(((n_marker + 1), n_times))
     else:
         FP_1 = None
         FP_2 = None
         TP = None
 
     # loop on all timepoints t
+    cause = float(cause)
     for t in range(1, n_times):
-        Cases = Mat_data["T"] < times[t] & Mat_data["delta"] == cause
-        Controls_1 = Mat_data["T"] > times[t]
-        Controls_2 = Mat_data["T"] < times[t] & Mat_data["delta"] != cause & Mat_data["delta"] != 0
+        times_t = Mat_data["T"] < times[t]
+        delta_cause = Mat_data["delta"] == cause
+        delta_not_cause = Mat_data["delta"] != cause
+        delta_one = Mat_data["delta"] != 0
+
+        # Cases = Mat_data.apply(lambda x: x if x['T'] < times[t] and x['delta'] == cause else x)
+        # Cases = Mat_data["T"] < times[t] and Mat_data["delta"] == cause
+        Cases = Mat_data[times_t & delta_cause]
+        Controls_1 = Mat_data[times_t]
+        Controls_2 = Mat_data[times_t & delta_not_cause & delta_one]
         if weighting != "marginal":
-            Weights_controls_1 = 1 / (weights.times(t) * n)
+            Weights_controls_1 = 1 / (times(t) * n)
         else:
-            # Weights_controls_1 = 1 / (weights.times[t] * n), times=n
+            # R: Weights_controls_1 = rep(1 / (weights$IPCW.times[t] * n), times=n)
+            # rep replicates the values in x, times an integer-valued vector giving the (non-negative)
+            #  number of times to repeat each element if of length length(x)
             pass
 
-        Weights_controls_1 = Weights_controls_1[order_marker]
+        # Sort, skip for now, probably unnecessary
+        # Weights_controls_1 = Weights_controls_1[order_marker]
 
         Weights_cases = Weights_cases_all
         Weights_controls_2 = Weights_cases_all
@@ -160,7 +176,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         else:
             TP_t = None
 
-        if (den_FP_1_t != 0):
+        if den_FP_1_t != 0:
             FP_1_tbis = np.array(0, np.cumsum(Weights_controls_1)) / den_FP_1_t
             FP_1_t = FP_1_tbis[pd.duplicated(marker[order_marker])]
         else:
@@ -172,7 +188,8 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         else:
             FP_2_t = None
 
-        # internal function to compute an area under a curve by trapezoidal rule
+            # internal function to compute an area under a curve by trapezoidal rule
+
         def airetrap(Abs, Ord):
             nobs = len(Abs)
             dAbs = Abs[-1] - Abs[-nobs]
@@ -195,10 +212,10 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
             FP_1[:, t] = FP_1_t
             FP_2[:, t] = FP_2_t
 
-    CumInci[t] = np.array(den_TP_t)
-    surv[t] = np.array(den_FP_1_t)
-    Stats[t, :] = np.array(sum(Cases), sum(Controls_1), sum(Controls_2),
-                           n - sum(Cases) - sum(Controls_1) - sum(Controls_2))
+        CumInci[t] = np.array(den_TP_t)
+        surv[t] = np.array(den_FP_1_t)
+        Stats[t, :] = np.array(sum(Cases), sum(Controls_1), sum(Controls_2),
+                               n - sum(Cases) - sum(Controls_1) - sum(Controls_2))
 
     inference = None
     if iid == True:
