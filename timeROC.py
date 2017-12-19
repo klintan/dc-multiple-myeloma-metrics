@@ -127,9 +127,9 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
     #  Make TP and FP outputs if needed
     if ROC:
-        FP_1 = np.zeros(((n_marker + 1), n_times))
-        TP = np.zeros(((n_marker + 1), n_times))
-        FP_2 = np.zeros(((n_marker + 1), n_times))
+        FP_1 = np.zeros(((n_marker), n_times))
+        TP = np.zeros(((n_marker), n_times))
+        FP_2 = np.zeros(((n_marker), n_times))
     else:
         FP_1 = None
         FP_2 = None
@@ -154,7 +154,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
             # R: Weights_controls_1 = rep(1 / (weights$IPCW.times[t] * n), times=n)
             # rep replicates the values in x, times an integer-valued vector giving the (non-negative)
             #  number of times to repeat each element if of length length(x)
-            pass
+            Weights_controls_1 = np.repeat(1 / (times[t] * n), n)
 
         # Sort, skip for now, probably unnecessary
         # Weights_controls_1 = Weights_controls_1[order_marker]
@@ -162,29 +162,36 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         Weights_cases = Weights_cases_all
         Weights_controls_2 = Weights_cases_all
 
-        Weights_cases[Cases] = 0  # DF is.na ?
-        Weights_controls_1[Controls_1] = 0  # DF is.na ?
-        Weights_controls_2[Controls_2] = 0  # DF is.na ?
+        # All the patients in cases should be 0 in Weights_cases ?
+        #Weights_cases[Cases] = 0  # DF is.na ?
+        # Weights_cases = Mat_data.iloc[Cases.index] = 0
+        # All the patients in Weights_controls_1 should be 0 in Controls_1 ?
+        #Weights_controls_1[Controls_1] = 0  # DF is.na ?
+        # All the patients in Weights_controls_1 should be 0 in Controls_1 ?
+        #Weights_controls_2[Controls_2] = 0  # DF is.na ?
 
         den_TP_t = sum(Weights_cases)
         den_FP_1_t = sum(Weights_controls_1)
         den_FP_2_t = sum(Weights_controls_2) + sum(Weights_controls_1)
 
         if den_TP_t != 0:
-            TP_tbis = np.array(0, np.cumsum(Weights_cases)) / den_TP_t
-            TP_t = TP_tbis[pd.duplicated(marker[order_marker])]  # get all not duplicated (needs to be a dataframe)
+            TP_tbis = np.cumsum(Weights_cases) / den_TP_t
+            TP_t = TP_tbis[np.unique(marker, return_index=True)[1]]
+            # TP_t = TP_tbis[pd.duplicated(marker[order_marker])]  # get all not duplicated (needs to be a dataframe)
         else:
             TP_t = None
 
         if den_FP_1_t != 0:
-            FP_1_tbis = np.array(0, np.cumsum(Weights_controls_1)) / den_FP_1_t
-            FP_1_t = FP_1_tbis[pd.duplicated(marker[order_marker])]
+            FP_1_tbis = np.cumsum(Weights_controls_1) / den_FP_1_t
+            FP_1_t = FP_1_tbis[np.unique(marker, return_index=True)[1]]
+            # FP_1_t = FP_1_tbis[pd.duplicated(marker[order_marker])]
         else:
             FP_1_t = None
 
         if den_FP_2_t != 0:
-            FP_2_tbis = np.array(0, np.cumsum(Weights_controls_1) + np.cumsum(Weights_controls_2)) / den_FP_2_t
-            FP_2_t = FP_2_tbis[pd.duplicated(marker[order_marker])]
+            FP_2_tbis = (np.cumsum(Weights_controls_1) + np.cumsum(Weights_controls_2)) / den_FP_2_t
+            FP_2_t = FP_2_tbis[np.unique(marker, return_index=True)[1]]
+            # FP_2_t = FP_2_tbis[pd.duplicated(marker[order_marker])]
         else:
             FP_2_t = None
 
@@ -192,8 +199,9 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
         def airetrap(Abs, Ord):
             nobs = len(Abs)
-            dAbs = Abs[-1] - Abs[-nobs]
-            mil = (Ord[-nobs] + Ord[-1]) / 2
+
+            dAbs = Abs[1:] - Abs[:nobs-1]
+            mil = (Ord[:nobs-1] + Ord[1:]) / 2
             area = sum(dAbs * mil)
             return (area)
 
@@ -202,7 +210,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         else:
             AUC_1[t] = None
 
-        if (den_TP_t * den_FP_2_t != 0):
+        if den_TP_t * den_FP_2_t != 0:
             AUC_2[t] = airetrap(FP_2_t, TP_t)
         else:
             AUC_2[t] = None
@@ -212,10 +220,10 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
             FP_1[:, t] = FP_1_t
             FP_2[:, t] = FP_2_t
 
-        CumInci[t] = np.array(den_TP_t)
-        surv[t] = np.array(den_FP_1_t)
-        Stats[t, :] = np.array(sum(Cases), sum(Controls_1), sum(Controls_2),
-                               n - sum(Cases) - sum(Controls_1) - sum(Controls_2))
+        CumInci[t] = den_TP_t
+        surv[t] = den_FP_1_t
+        # Stats[t, :] = np.array([sum(Cases), sum(Controls_1), sum(Controls_2),
+        #                       n - sum(Cases) - sum(Controls_1) - sum(Controls_2)])
 
     inference = None
     if iid == True:

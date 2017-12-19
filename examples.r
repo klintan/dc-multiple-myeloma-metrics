@@ -1,11 +1,11 @@
-#source("./metrics.r")
+source("./metrics.r")
 
 ## Testing full results
-#calculate <- dget("metrics.r")
+calculate <- dget("metrics.r")
 test = read.csv("test_data.csv", header = TRUE)
 test['predictionscore'] <- order(test['D_PFS'])
-#pred = read.csv("predictions.csv", header = TRUE)
-#calculate(pred, test['D_PFS'], test['D_PFS_FLAG'], pred['study'])
+pred = read.csv("predictions.csv", header = TRUE)
+calculate(pred, test['D_PFS'], test['D_PFS_FLAG'], pred['study'])
 
 
 ## Testing prodLim package kaplan-meier reverse
@@ -17,6 +17,10 @@ library(prodlim)
 library(rms)
 
 times = 30.5 * c(14, 16, 18, 20, 22)
+
+predicted = test['predictionscore']
+D_PFS = test['D_PFS']
+D_PFS_FLAG =  test['D_PFS_FLAG']
 
 T = test['D_PFS']
 colnames(T) <- c("T")
@@ -38,3 +42,9 @@ df = data.frame(failure_time=T,status=as.numeric(delta!=0))
 weights <- pec::ipcw(Surv(failure_time,status)~1,data=df,method="marginal",times=times,subjectTimes=T,subjectTimesLag=1)
 
 print(weights)
+
+# timeROC library example
+suppressPackageStartupMessages(library("timeROC"))
+tempAUC <- timeROC(T = D_PFS, delta = D_PFS_FLAG, marker = predicted, cause = 1, times = times)
+
+print(tempAUC)
