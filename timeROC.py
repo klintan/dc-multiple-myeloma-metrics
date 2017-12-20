@@ -231,65 +231,73 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
             raise (
                 "Error : Weighting must be marginal for computing the iid representation \n Choose iid=FALSE or weighting=marginal in the input arguments")
 
-    else:
-        # create iid representation required for inference procedures
-        out_iid = np.array("list", n_times)
-        names[out_iid] = paste("t=", times, sep="")
-        vect_iid_comp_time = rep(NA, times=n_times)
-        names[vect_iid_comp_time] = paste("t=", times, sep="")
-        mat_iid_rep = np.matrix(np.zeros(n), np.zeros(n_times))
-        colnames[mat_iid_rep] = paste("t=", times, sep="")
-        mat_iid_rep_star = np.matrix(np.zeros(n), np.zeros(n_times))
-        colnames[mat_iid_rep_star] = paste("t=", times, sep="")
-        vetc_se = rep(NA, times=n_times)
-        names[vetc_se] = paste("t=", times, sep="")
-        vetc_sestar = rep(NA, times=n_times)
-        names[vetc_sestar] = paste("t=", times, sep="")
-
-    # compute iid for Kaplan Meier
-    kmf = KaplanMeierFitter()
-    MatInt0TcidhatMCksurEff = kmf.fit(T, event_observed=delta)
-    # MatInt0TcidhatMCksurEff = Compute.iid.KM(times=T, status=delta)
-    for j in range(1, n_times):
-        # compute iid representation when AUC can be computed
-        if AUC_1[j] or AUC_2[j]:
-            out_iid[[j]] = compute_iid_decomposition(weights, T, delta, marker, t=times[j], n=n, cause=cause,
-                                                     F01t=CumInci[j], St=surv[j],
-                                                     MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff)
         else:
-            out_iid[[j]] = None
-        # browser()
-        # save output for inference for AUC_1 when AUC_1 can be computed
-        if AUC_1[j]:
-            mat_iid_rep_star[:, j] = out_iid[j].iid_representation_AUCstar
-        vetc_sestar[j] = out_iid[j].seAUCstar
-        vect_iid_comp_time[j] = out_iid[j].computation_times
+            # create iid representation required for inference procedures
+            out_iid = np.zeros(n_times)
+            #names[out_iid] = paste("t=", times, sep="")
 
-        # save output for inference for AUC_2 when AUC_2 can be computed
-        if AUC_2[j]:
-            mat_iid_rep[:, j] = out_iid[j].iid_representation_AUC
-        vetc_se[j] = out_iid[j].seAUC
-        vect_iid_comp_time[j] = out_iid[[j]].computation_times
+            vect_iid_comp_time = np.zeros(n_times)
+            #names[vect_iid_comp_time] = paste("t=", times, sep="")
 
-        inference = {'mat_iid_rep_2': mat_iid_rep,
-                     'mat_iid_rep_1': mat_iid_rep_star,
-                     'vect_sd_1': vetc_sestar,
-                     'vect_sd_2': vetc_se,
-                     'vect_iid_comp_time': vect_iid_comp_time
-                     }
+            mat_iid_rep = np.zeros(n, n_times)
+            #colnames[mat_iid_rep] = paste("t=", times, sep="")
+
+            mat_iid_rep_star = np.zeros(n, n_times)
+            #colnames[mat_iid_rep_star] = paste("t=", times, sep="")
+
+            vetc_se = np.zeros(n_times)
+            #names[vetc_se] = paste("t=", times, sep="")
+
+            vetc_sestar = np.zeros(n_times)
+            #names[vetc_sestar] = paste("t=", times, sep="")
+
+        # compute iid for Kaplan Meier
+        kmf = KaplanMeierFitter()
+        MatInt0TcidhatMCksurEff = kmf.fit(T, event_observed=delta)
+        # MatInt0TcidhatMCksurEff = Compute.iid.KM(times=T, status=delta)
+        for j in range(1, n_times):
+            # compute iid representation when AUC can be computed
+            if AUC_1[j] or AUC_2[j]:
+                raise NotImplementedError("IID decomposition not implemented yet")
+                # out_iid[j] = compute_iid_decomposition(weights, T, delta, marker, t=times[j], n=n, cause=cause,
+                #                                         F01t=CumInci[j], St=surv[j],
+                #                                         MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff)
+            else:
+                out_iid[j] = None
+            # browser()
+            # save output for inference for AUC_1 when AUC_1 can be computed
+            if AUC_1[j]:
+                mat_iid_rep_star[:, j] = out_iid[j].iid_representation_AUCstar
+            vetc_sestar[j] = out_iid[j].seAUCstar
+            vect_iid_comp_time[j] = out_iid[j].computation_times
+
+            # save output for inference for AUC_2 when AUC_2 can be computed
+            if AUC_2[j]:
+                mat_iid_rep[:, j] = out_iid[j].iid_representation_AUC
+            vetc_se[j] = out_iid[j].seAUC
+            vect_iid_comp_time[j] = out_iid[[j]].computation_times
+
+            inference = {'mat_iid_rep_2': mat_iid_rep,
+                         'mat_iid_rep_1': mat_iid_rep_star,
+                         'vect_sd_1': vetc_sestar,
+                         'vect_sd_2': vetc_se,
+                         'vect_iid_comp_time': vect_iid_comp_time
+                         }
+
+    stop_computation_time = timeit.default_timer()
 
     # output if there is competing risks or not
-    if max(Stats[:, 3]) == 0:
+    if max(Stats['Censored at t'].values) == 0:
         out = {'TP': TP, 'FP': FP_1, 'AUC': AUC_1, 'times': times, 'CumulativeIncidence': CumInci, 'survProb': surv,
-               'n': n, 'Stats': Stats[:, np.array(1, 2, 4)], 'weights': weights,
+               'n': n, 'Stats': Stats[['Cases', 'Other events at t', 'Censored at t']], 'weights': weights,
                'inference': inference,
-               'computation_time': difftime(stop_computation_time, start_computation_time, units="secs"), 'iid': iid}
+               'computation_time': stop_computation_time-start_computation_time, 'iid': iid}
         # class(out) < - "ipcwsurvivalROC"
         print(out)
     else:
         out = {'TP': TP, 'FP_1': FP_1, 'AUC_1': AUC_1, 'FP_2': FP_2, 'AUC_2': AUC_2, 'times': times,
                'CumulativeIncidence': CumInci, 'survProb': surv, 'n': n, 'Stats': Stats, 'weights': weights,
                'inference': inference,
-               'computation_time': difftime(stop_computation_time, start_computation_time, units="secs"), 'iid': iid}
+               'computation_time': stop_computation_time - start_computation_time, 'iid': iid}
         # class(out) < - "ipcwcompetingrisksROC"
         print(out)
