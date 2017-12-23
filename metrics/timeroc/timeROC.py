@@ -1,7 +1,7 @@
 import numpy as np
 import functools
 import pandas as pd
-from ipcw.ipcw import IPCW
+from metrics.ipcw.ipcw import IPCW
 from lifelines import KaplanMeierFitter
 # import iid_decomposition as compute_iid_decomposition
 import timeit
