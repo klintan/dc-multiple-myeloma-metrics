@@ -1,8 +1,8 @@
 from sklearn.metrics import roc_auc_score, recall_score, matthews_corrcoef, f1_score, average_precision_score
 from lifelines.utils import concordance_index
 import numpy as np
-from timeROC import timeROC
-from integrateAUC import IntegrateAUC
+from timeroc.timeROC import timeROC
+from iauc.integrateAUC import IntegrateAUC
 
 class Calculate():
     def __init__(self):

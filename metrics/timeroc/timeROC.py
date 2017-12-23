@@ -1,7 +1,7 @@
 import numpy as np
 import functools
 import pandas as pd
-from ipcw import IPCW
+from ipcw.ipcw import IPCW
 from lifelines import KaplanMeierFitter
 # import iid_decomposition as compute_iid_decomposition
 import timeit
@@ -17,11 +17,6 @@ def paste(*lists, sep=" ", collapse=None):
     if collapse is not None:
         return reduce_concat(result, sep=collapse)
     return list(result)
-
-
-def difftime():
-    pass
-
 
 def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="marginal", ROC=True, iid=False):
     # https://github.com/cran/timeROC/blob/master/R/timeROC_3.R

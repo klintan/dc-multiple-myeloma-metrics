@@ -381,6 +381,4 @@ class IPCW():
 
         out = {'times': self.times, 'subject_times': self.subject_times, 'method': self.method}
 
-        out = self.output(out, self.keep, self.times, self.fit, self.call)
-
         return out

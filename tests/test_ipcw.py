@@ -1,4 +1,4 @@
-from ipcw import IPCW
+from metrics.ipcw.ipcw import IPCW
 import numpy as np
 import pandas as pd
 import unittest
