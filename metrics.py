@@ -1,7 +1,8 @@
-from sklearn.metrics import auc, recall_score, matthews_corrcoef, f1_score, average_precision_score
+from sklearn.metrics import roc_auc_score, recall_score, matthews_corrcoef, f1_score, average_precision_score
 from lifelines.utils import concordance_index
 import numpy as np
-from timeROC import timeROC as timeROCPackage
+from timeROC import timeROC
+from integrateAUC import IntegrateAUC
 
 class Calculate():
     def __init__(self):
@@ -9,7 +10,7 @@ class Calculate():
 
     ## Calculate the Area Under the ROC Curve
     def auc(self, predicted, actual):
-        return auc(actual, predicted)
+        return roc_auc_score(actual, predicted)
 
     ## Calculate the balanced accuracy [ i.e., ( sensitivity + specificity ) / 2 ]
     def bac(self, predicted, actual):
@@ -31,12 +32,13 @@ class Calculate():
 
     ## Calculate TimeROC
     def timeROC(self, predicted, D_PFS, D_PFS_FLAG, times=30.5 * np.asarray([14, 16, 18, 20, 22])):
-        tempAUC = timeROCPackage(T=D_PFS, delta=D_PFS_FLAG, marker=predicted, cause=1, times=times)
-        pass
+        tempAUC = timeROC(T=D_PFS, delta=D_PFS_FLAG, marker=predicted, cause=1, times=times)
+        return tempAUC['AUC']
 
     def integratedAUC(self, predicted, D_PFS, D_PFS_FLAG, times=30.5 * np.asarray([14, 16, 18, 20, 22])):
-        print(times)
-        pass
+        tempAUC = timeROC(T=D_PFS, delta=D_PFS_FLAG, marker=predicted, cause=1, times=times)
+        iaucs = IntegrateAUC(tempAUC['AUC'], tempAUC['times'], tempAUC['survProb'], max(tempAUC['times']))
+        return iaucs
 
     ## Calculate concordance Index
     def concordanceIndex(self, predicted, D_PFS, D_PFS_FLAG):
@@ -56,28 +58,27 @@ class Calculate():
     # progression = true PFS_FLAGs
     def metrics(self, rawscore, highrisk, PFStime, pfs_flag):
         cutoff = 18
-        pass
-        # HR = rep(NA, len(rawscore))
-        # HR[pfs_flag == 1 & PFStime < cutoff * 30.5] < - 1
-        # HR[PFStime >= cutoff * 30.5] < - 0
-        # newProg = HR
-        # progression = pfs_flag
+        HR1 = np.where((PFStime < cutoff * 30.5) & (pfs_flag == 1), 1, 0)
+        HR2= np.where(PFStime >= cutoff * 30.5, 0, 1)
+        assertCountEqual(HR1==HR2)
+        newProg = HR
+        progression = pfs_flag
 
-        # calculate = Calculate()
-        #
-        # auc = calculate.auc(rawscore, newProg)
-        # bac = calculate.bac(highrisk, newProg)
-        # mcc = calculate.mcc(highrisk, newProg)
-        # f1 = calculate.f1(highrisk, newProg)
-        # timeROC = calculate.timeROC(rawscore, PFStime, progression)
-        # iAUC = calculate.integratedAUC(rawscore, PFStime, progression, times=30.5 * seq(12, 24, by=.25))
-        #
-        # # Remove null
-        # rawscore_nona = rawscore[! is.na(HR)]
-        # newProg_nona = newProg[! is.na(HR)]
-        # prAUC = calculate.prAUC(rawscore_nona, newProg_nona)
-        #
-        # return (list(auc, bac, mcc, f1, timeROC, iAUC, prAUC))
+
+        auc = self.auc(rawscore, newProg)
+        bac = self.bac(highrisk, newProg)
+        mcc = self.mcc(highrisk, newProg)
+        f1 = self.f1(highrisk, newProg)
+        timeROC = self.timeROC(rawscore, PFStime, progression)
+        iAUC = self.integratedAUC(rawscore, PFStime, progression, times=30.5 * np.arange(12, 24, .25))
+
+        # Remove null
+        #rawscore_nona = rawscore[! is.na(HR)]
+        #newProg_nona = newProg[! is.na(HR)]
+        #prAUC = calculate.prAUC(rawscore_nona, newProg_nona)
+        prAUC = 0
+
+        return [auc, bac, mcc, f1, timeROC, iAUC, prAUC]
 
     ##### simple wrapper to faciliate bootstrapping later
     def weightedMetrics(self, singleSubPredMat, PFStime, pfs_flag, study=None):
@@ -88,48 +89,40 @@ class Calculate():
         :param study: the study str
         :return:
         """
-        pass
-        # rawscore < - singleSubPredMat$predictionscore
-        # highrisk < - as.numeric(as.logical(singleSubPredMat$highriskflag));
-        # cutoff < - 18
-        # HR < - rep(NA, length(rawscore))
-        # HR[pfs_flag == 1 & PFStime < cutoff * 30.5] < - 1
-        # HR[PFStime >= cutoff * 30.5] < - 0
-        # newProg < - HR
-        # progression < - pfs_flag
-        # N < - table(study[progression == 1])
-        #
-        # auc < - c();
-        # bac < - c();
-        # mcc < - c();
-        # f1 < - c();
-        # timeROC < - c();
-        # iAUC < - c();
-        # prAUC < - c();
-        #
-        # for (s in names(N))
-        # {
-        #                     inds < - study == s
-        # auc < - c(auc, calculate.auc(rawscore[inds], newProg[inds]))
-        # bac < - c(bac, calculate.bac(highrisk[inds], newProg[inds]))
-        # mcc < - c(mcc, calculate.mcc(highrisk[inds], newProg[inds]))
-        # f1 < - c(f1, calculate.f1(highrisk[inds], newProg[inds]))
-        # timeROC < - c(timeROC, calculate.timeROC(rawscore[inds], PFStime[inds], progression[inds]))
-        # iAUC < - c(iAUC, calculate.integratedAUC(rawscore[inds], PFStime[inds], progression[inds], times =  30.5 * seq(12, 24, by = .25)))
-        #
-        # # Remove nulls for prAUC
-        # rawscore_nona < - rawscore[inds][! is.na(HR[inds])]
-        # newProg_nona < - newProg[inds][! is.na(HR[inds])]
-        # prAUC < - c(prAUC, calculate.prAUC(rawscore_nona, newProg_nona))
-        # }
-        #
-        # auc < - calculate.weightedAverage(auc, N = as.vector(N))
-        # bac < - calculate.weightedAverage(bac, N = as.vector(N))
-        # mcc < - calculate.weightedAverage(mcc, N = as.vector(N))
-        # f1 < - calculate.weightedAverage(f1, N = as.vector(N))
-        # timeROC < - calculate.weightedAverage(timeROC, N = as.vector(N))
-        # iAUC < - calculate.weightedAverage(iAUC, N = as.vector(N))
-        # prAUC < - calculate.weightedAverage(prAUC, N = as.vector(N))
-        # return (list(auc, bac, mcc, f1, iAUC, prAUC))
+
+        rawscore = singleSubPredMat['predictionscore']
+        highrisk = singleSubPredMat['highriskflag']
+        cutoff = 18
+        HR = np.where((PFStime < cutoff * 30.5) & (pfs_flag == 1), 1, 0)
+        # HR2 = np.where(PFStime >= cutoff * 30.5, 0, 1)
+        newProg = HR
+        progression = pfs_flag
+        N = study[progression == 1]
+
+
+        for s in singleSubPredMat['study'].unique():
+            inds = singleSubPredMat['study'] == s
+            auc = (self.auc(rawscore[inds], newProg[inds]))
+            bac = self.bac(highrisk[inds], newProg[inds])
+            mcc = self.mcc(highrisk[inds], newProg[inds])
+            f1 = self.f1(highrisk[inds], newProg[inds])
+            timeROC = self.timeROC(rawscore[inds], PFStime[inds], progression[inds])
+            iAUC = self.integratedAUC(rawscore[inds], PFStime[inds], progression[inds], times =  30.5 * np.arange(12, 24, .25))
+
+            # Remove nulls for prAUC
+            #rawscore_nona = rawscore[inds][! is.na(HR[inds])]
+            #newProg_nona =  newProg[inds][! is.na(HR[inds])]
+            #prAUC = self.prAUC(rawscore_nona, newProg_nona)
+            prAUC = []
+            print("study: "+s, [auc, bac, mcc, f1, iAUC])
+
+        #auc = self.weightedAverage(auc, N)
+        #bac = self.weightedAverage(bac, N)
+        #mcc = self.weightedAverage(mcc, N)
+        #f1  = self.weightedAverage(f1, N)
+        #timeROC = self.weightedAverage(timeROC, N)
+        #iAUC = self.weightedAverage(iAUC, N)
+        #prAUC = self.weightedAverage(prAUC, N)
+        return [auc, bac, mcc, f1, iAUC, prAUC]
 
 

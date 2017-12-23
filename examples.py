@@ -2,7 +2,7 @@ import metrics
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from ipcw import IPCW
-
+from integrateAUC import IntegrateAUC
 calculate = metrics.Calculate()
 import numpy as np
 
@@ -41,7 +41,6 @@ ipcw = IPCW(formula=None, data=df_ipcw_data, method="marginal", times=times, sub
             what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
 
 weights = ipcw.marginal()
-print(weights)
 # predicted: continuous prediction score for high risk flag (patient progression within < 18 month.)
 tempAUC = calculate.timeROC(predicted=pred['prediction'], D_PFS=test['D_PFS'], D_PFS_FLAG=test['D_PFS_FLAG'])
 
@@ -51,7 +50,10 @@ tempAUC = calculate.timeROC(predicted=pred['prediction'], D_PFS=test['D_PFS'], D
 # t=549    11        17       18   78.77
 # t=610    11        15       20   78.09
 # t=671    12        15       19   73.05
-print(tempAUC)
+
+#integrated AUC
+calculate.integratedAUC(predicted=pred['prediction'], D_PFS=test['D_PFS'], D_PFS_FLAG=test['D_PFS_FLAG'])
 
 # predict all metrics
-# calculate.weightedMetrics(singleSubPredMat=pred, PFStime=test['D_PFS'], pfs_flag=test['D_PFS_FLAG'])
+metrics = calculate.weightedMetrics(singleSubPredMat=pred, PFStime=test['D_PFS'], pfs_flag=test['D_PFS_FLAG'], study=pred['study'])
+print(metrics)

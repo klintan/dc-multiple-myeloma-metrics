@@ -293,11 +293,10 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
                'inference': inference,
                'computation_time': stop_computation_time-start_computation_time, 'iid': iid}
         # class(out) < - "ipcwsurvivalROC"
-        print(out)
     else:
         out = {'TP': TP, 'FP_1': FP_1, 'AUC_1': AUC_1, 'FP_2': FP_2, 'AUC_2': AUC_2, 'times': times,
                'CumulativeIncidence': CumInci, 'survProb': surv, 'n': n, 'Stats': Stats, 'weights': weights,
                'inference': inference,
                'computation_time': stop_computation_time - start_computation_time, 'iid': iid}
         # class(out) < - "ipcwcompetingrisksROC"
-        print(out)
+    return out

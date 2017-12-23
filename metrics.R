@@ -33,8 +33,6 @@ calculate.timeROC <- function(predicted, D_PFS, D_PFS_FLAG, times = 30.5 * c(14,
     suppressPackageStartupMessages(library("timeROC"))
     suppressPackageStartupMessages(library("risksetROC"))
     tempAUC <- timeROC(T = D_PFS, delta = D_PFS_FLAG, marker = predicted, cause = 1, times = times)
-    print("tempAUC")
-    dput(tempAUC)
     iaucs <- IntegrateAUC(tempAUC$AUC, tempAUC$times, tempAUC$survProb, tmax = max(tempAUC$times))
     tAUCs <- tempAUC$AUC
 }
