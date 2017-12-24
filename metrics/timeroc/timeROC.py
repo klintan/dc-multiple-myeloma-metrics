@@ -6,7 +6,7 @@ from lifelines import KaplanMeierFitter
 # import iid_decomposition as compute_iid_decomposition
 import timeit
 import statsmodels.api as sm
-
+from sklearn.metrics import auc
 
 def reduce_concat(x, sep=""):
     return functools.reduce(lambda x, y: str(x) + sep + str(y), x)
@@ -24,10 +24,10 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     # T              : vector of observed failure times
     # delta          : vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...)
     # marker         : vector of marker values
-    # other_markers  : (default is NULL, should be a matrix) other markers that can be associated with the censoring mechanism
     # cause          : the value that indicates the main event of interest
-    # weighting      : (default is "marginal") weighting technique for IPCW : "marginal" for Kaplan-Meier, "cox" for proportional hazards cox model, "aalen" for additive aalen model
     # times          : vector of times you want to compute the time dependent AUC.
+    # other_markers  : (default is NULL, should be a matrix) other markers that can be associated with the censoring mechanism
+    # weighting      : (default is "marginal") weighting technique for IPCW : "marginal" for Kaplan-Meier, "cox" for proportional hazards cox model, "aalen" for additive aalen model
     # ROC            : if TRUE, then save True Positive fraction (Sensitivity) and False Positive fraction (1-Specificity)
     #                  for all time in vetor times
     # iid            : TRUE or FALSE, indicates if we want to compute the iid representation of the AUC estimator
@@ -97,6 +97,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         df_ipcw_data = pd.DataFrame(data=IPCW_data, index=IPCW_data[:, 0], columns=['failure_time', 'status'])
         ipcw = IPCW(formula=None, data=df_ipcw_data, method="marginal", times=times, subjectTimes=T,
                     what=["IPCW.times", "IPCW.subject.times"], subjectTimesLag=1)
+        # TODO this should be ipcw.fit()
         weights = ipcw.marginal()
 
     if weighting == "cox":
@@ -132,7 +133,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
     # loop on all timepoints t
     cause = float(cause)
-    for t in range(1, n_times):
+    for t in range(0, n_times):
         times_t = Mat_data["T"] < times[t]
         delta_cause = Mat_data["delta"] == cause
         delta_not_cause = Mat_data["delta"] != cause
@@ -190,23 +191,21 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         else:
             FP_2_t = None
 
-            # internal function to compute an area under a curve by trapezoidal rule
-
-        def airetrap(Abs, Ord):
-            nobs = len(Abs)
-
-            dAbs = Abs[1:] - Abs[:nobs-1]
-            mil = (Ord[:nobs-1] + Ord[1:]) / 2
-            area = sum(dAbs * mil)
-            return (area)
 
         if den_TP_t * den_FP_1_t != 0:
-            AUC_1[t] = airetrap(FP_1_t, TP_t)
+            # sorting that sklearn auc uses
+            # order = np.lexsort((FP_1_t, TP_t))
+            # FP_1_t, TP_t = FP_1_t[order], TP_t[order]
+            # it needs to be ordered, it should probably be ordered already
+            AUC_1[t] = auc(FP_1_t, TP_t, reorder=True)
+
         else:
             AUC_1[t] = None
 
         if den_TP_t * den_FP_2_t != 0:
-            AUC_2[t] = airetrap(FP_2_t, TP_t)
+            # it needs to be ordered, it should probably be ordered already
+            AUC_2[t] = auc(FP_2_t, TP_t, reorder=True)
+
         else:
             AUC_2[t] = None
 

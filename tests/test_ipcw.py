@@ -8,7 +8,7 @@ class IPCWTests(unittest.TestCase):
         # IPCW examples
         # T              : vector of observed failure times
         # delta          : vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...)
-        test = pd.read_csv('../test_data.csv')
+        test = pd.read_csv('../sample-data/test_data.csv')
 
         T = test['D_PFS'].values
         delta = test['D_PFS_FLAG'].values
@@ -22,8 +22,10 @@ class IPCWTests(unittest.TestCase):
 
         weights = ipcw.marginal()
         r_ipcw_weights =[0.839, 0.787, 0.760, 0.746, 0.746]
-        for i in range(0,len(weights)):
-            self.assertEqual(weights[i],r_ipcw_weights[i]);
+        print("weights", weights.values)
+        print("actual weights", r_ipcw_weights)
+        for i in range(0,len(r_ipcw_weights)):
+            self.assertAlmostEqual(weights.values[i],r_ipcw_weights[i])
 
         #head() of the predicted IPCW for 5 subjects (rows), at the 1 requested times (columns):
 
