@@ -3,11 +3,12 @@
 All metrics found in the metrics.r file, reimplemented in Python.  Many of them make use of Sklearn implemented metrics. 
 
 Available metrics: 
-- TimeROC
-- Integrated AUC
+- TimeROC, Time dependent Reciever operating charateristics
+- Integrated AUC, integrated Area under curve
 - F1
-- BAC
-- MCC
+- BAC, Balanced accuracy
+- MCC, 
+- PR AUC, Precision recall area under the curve
 - Weighted average across studies for each metric 
 
 
