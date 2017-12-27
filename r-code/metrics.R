@@ -30,14 +30,18 @@ calculate.f1 <- function(predicted, actual) {
 
 ## Calculate TimeROC
 calculate.timeROC <- function(predicted, D_PFS, D_PFS_FLAG, times = 30.5 * c(14, 16, 18, 20, 22)) {
-    suppressPackageStartupMessages(library("timeROC"))
+    #suppressPackageStartupMessages(library("timeROC"))
     suppressPackageStartupMessages(library("risksetROC"))
-    print(length(D_PFS))
-    print(length(D_PFS_FLAG))
-    print(length(predicted))
+    source("./timeROC/timeROC_3.R")
 
     tempAUC <- timeROC(T = D_PFS, delta = D_PFS_FLAG, marker = predicted, cause = 1, times = times)
+    print("tempAUC TP")
+    print(tempAUC$TP)
+    print("tempAUC TP")
+    print(tempAUC$FP)
     iaucs <- IntegrateAUC(tempAUC$AUC, tempAUC$times, tempAUC$survProb, tmax = max(tempAUC$times))
+    print("iAUC")
+    print(iauc)
     tAUCs <- tempAUC$AUC
 }
 
@@ -108,9 +112,6 @@ calculate.weightedAverage <- function(metric, N)
 calculate.metrics_wrapper <- function(singleSubPredMat, PFStime, pfs_flag) {
     rawscore <- singleSubPredMat$predictionscore
     highrisk <- as.numeric(as.logical(singleSubPredMat$highriskflag));
-    print(length(PFStime))
-    print(length(pfs_flag))
-    print(rawscore)
 
     calculate.metrics(rawscore, highrisk, PFStime$D_PFS, pfs_flag$D_PFS_FLAG)
 }
