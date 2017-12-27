@@ -17,7 +17,7 @@ def IntegrateAUC(AUC, utimes, St, tmax, weight = "rescale"):
     ft = np.zeros(len(St))
     ft[1] = 1 - St[1]
 
-    for j in range(2,len(St)):
+    for j in range(1,len(St)):
         ft[j] = St[j - 1] - St[j]
 
     #filter list using bool list

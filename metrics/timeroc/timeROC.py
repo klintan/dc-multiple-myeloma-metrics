@@ -56,7 +56,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     start_computation_time = timeit.default_timer()
 
     n = len(T)
-    n_marker = len(set(marker))  # get all unique markers ?
+    n_marker = len(set(marker))  # number of unique markers
     n_times = len(times)
 
     if n_times == 1:
@@ -67,18 +67,12 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
     # add possibility to use days or month in times
     times_names = ["t=" + str(x) for x in times]
-    # times_names = paste(times, sep="t=")
 
     # Outputs
     AUC_1 = np.zeros(n_times)  # I don't think these are necessary but will stay for now
     AUC_2 = np.zeros(n_times)  # I don't think these are necessary but will stay for now
     CumInci = np.zeros(n_times)
     surv = np.zeros(n_times)
-
-    # names(AUC_1) < -times_names
-    # names(AUC_2) < -times_names
-    # names(CumInci) < -times_names
-    # names(surv) < -times_names
 
     stats_data = np.zeros((n_times, 4))
     Stats = pd.DataFrame(stats_data, columns=["Cases", "survivor at t", "Other events at t", "Censored at t"],
@@ -107,19 +101,21 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         raise NotImplementedError('Aalen weighing not yet supported')
 
     # we order by marker values (in order to compute Se and Sp)
-    order_marker = sorted(marker)
+    order_marker = np.argsort(marker)
 
     # concat by column all of them using order marker (to get corresponding values in order)
     # Mat_data <- cbind(T, delta, marker)[order_marker, ]
     # colnames(Mat_data) <- c("T", "delta", "marker")
     Mat_data = pd.DataFrame(temp_data, columns=["T", "delta",
                                                 "marker"])  # all matrices should be defined as Pandas dataframes instead
+    Mat_data.index = order_marker
+    Mat_data.sort_index(inplace=True)
 
     # Weights for all cases
     Weights_cases_all = 1 / (Mat_data['T'].values * n)
 
     # sort, this is probably unnecessary so lets skip for now.
-    # Weights_cases_all = Weights_cases_all[order_marker]
+    Weights_cases_all = Weights_cases_all[order_marker]
 
     #  Make TP and FP outputs if needed
     if ROC:
@@ -139,32 +135,26 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         delta_not_cause = Mat_data["delta"] != cause
         delta_one = Mat_data["delta"] != 0
 
-        # Cases = Mat_data.apply(lambda x: x if x['T'] < times[t] and x['delta'] == cause else x)
-        # Cases = Mat_data["T"] < times[t] and Mat_data["delta"] == cause
         Cases = Mat_data[times_t & delta_cause]
         Controls_1 = Mat_data[times_t]
         Controls_2 = Mat_data[times_t & delta_not_cause & delta_one]
         if weighting != "marginal":
             Weights_controls_1 = 1 / (times(t) * n)
         else:
-            # R: Weights_controls_1 = rep(1 / (weights$IPCW.times[t] * n), times=n)
-            # rep replicates the values in x, times an integer-valued vector giving the (non-negative)
-            #  number of times to repeat each element if of length length(x)
             Weights_controls_1 = np.repeat(1 / (times[t] * n), n)
 
         # Sort, skip for now, probably unnecessary
-        # Weights_controls_1 = Weights_controls_1[order_marker]
+        Weights_controls_1 = Weights_controls_1[order_marker]
 
         Weights_cases = Weights_cases_all
         Weights_controls_2 = Weights_cases_all
 
-        # All the patients in cases should be 0 in Weights_cases ?
-        #Weights_cases[Cases] = 0  # DF is.na ?
-        # Weights_cases = Mat_data.iloc[Cases.index] = 0
-        # All the patients in Weights_controls_1 should be 0 in Controls_1 ?
-        #Weights_controls_1[Controls_1] = 0  # DF is.na ?
-        # All the patients in Weights_controls_1 should be 0 in Controls_1 ?
-        #Weights_controls_2[Controls_2] = 0  # DF is.na ?
+        # All the patients in Cases should be 0 for Weights_cases
+        Weights_cases[Cases.index] = 0
+        # All the patients in Weights_controls_1 should be 0 for Controls_1
+        Weights_controls_1[Controls_1.index] = 0  # DF is.na ?
+        # All the patients in Weights_controls_2 should be 0 in Controls_2 ?
+        Weights_controls_2[Controls_2.index] = 0  # DF is.na ?
 
         den_TP_t = sum(Weights_cases)
         den_FP_1_t = sum(Weights_controls_1)
@@ -172,22 +162,19 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
         if den_TP_t != 0:
             TP_tbis = np.cumsum(Weights_cases) / den_TP_t
-            TP_t = TP_tbis[np.unique(marker, return_index=True)[1]]
-            # TP_t = TP_tbis[pd.duplicated(marker[order_marker])]  # get all not duplicated (needs to be a dataframe)
+            TP_t = TP_tbis[np.unique(marker[order_marker], return_index=True)[1]]
         else:
             TP_t = None
 
         if den_FP_1_t != 0:
             FP_1_tbis = np.cumsum(Weights_controls_1) / den_FP_1_t
-            FP_1_t = FP_1_tbis[np.unique(marker, return_index=True)[1]]
-            # FP_1_t = FP_1_tbis[pd.duplicated(marker[order_marker])]
+            FP_1_t = FP_1_tbis[np.unique(marker[order_marker], return_index=True)[1]]
         else:
             FP_1_t = None
 
         if den_FP_2_t != 0:
             FP_2_tbis = (np.cumsum(Weights_controls_1) + np.cumsum(Weights_controls_2)) / den_FP_2_t
-            FP_2_t = FP_2_tbis[np.unique(marker, return_index=True)[1]]
-            # FP_2_t = FP_2_tbis[pd.duplicated(marker[order_marker])]
+            FP_2_t = FP_2_tbis[np.unique(marker[order_marker], return_index=True)[1]]
         else:
             FP_2_t = None
 
@@ -197,14 +184,14 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
             # order = np.lexsort((FP_1_t, TP_t))
             # FP_1_t, TP_t = FP_1_t[order], TP_t[order]
             # it needs to be ordered, it should probably be ordered already
-            AUC_1[t] = auc(FP_1_t, TP_t, reorder=True)
+            AUC_1[t] = auc(FP_1_t, TP_t, reorder=False)
 
         else:
             AUC_1[t] = None
 
         if den_TP_t * den_FP_2_t != 0:
             # it needs to be ordered, it should probably be ordered already
-            AUC_2[t] = auc(FP_2_t, TP_t, reorder=True)
+            AUC_2[t] = auc(FP_2_t, TP_t, reorder=False)
 
         else:
             AUC_2[t] = None
