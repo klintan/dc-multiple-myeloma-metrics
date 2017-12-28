@@ -2,7 +2,7 @@ from metrics.timeroc.timeROC import timeROC
 import pandas as pd
 import numpy as np
 from metrics import metrics as met
-from metrics.timeroc.timeROC import timeROC
+from metrics.timeroc.timeROC import timeROC, calculate_weights_cases_all, case_masking, matrix_transpose
 import unittest
 
 
@@ -20,6 +20,8 @@ class TimeROCTests(unittest.TestCase):
         self.HR = np.where((test_data['D_PFS'] < cutoff * 30.5) & (test_data['D_PFS_FLAG'] == 1), 1, 0)
         self.newProg = self.HR
         self.progression = test_data['D_PFS_FLAG']
+        self.times = 30.5 * np.asarray([14, 16, 18, 20, 22])
+        self.results = timeROC(T=self.PFStime, delta=self.progression, marker=self.rawscore, cause=1, times=self.times)
 
     def test_timeroc(self):
         # T              : vector of observed failure times
@@ -28,7 +30,6 @@ class TimeROCTests(unittest.TestCase):
         # cause          : the value that indicates the main event of interest
         # times          : vector of times you want to compute the time dependent AUC.
         timeROC = self.metrics.timeROC(self.rawscore, self.PFStime, self.progression)
-        # pd.DataFrame(index=[t=427     t=488     t=549     t=610     t=671])
         actual_timeROC = [0.7290861, 0.8157194, 0.7675568, 0.7460048, 0.7118679]
         print("timeROC", timeROC)
         print("actualTimeROC", actual_timeROC)
@@ -36,42 +37,124 @@ class TimeROCTests(unittest.TestCase):
             self.assertAlmostEqual(actual_timeROC[i], timeROC[i])
 
     def test_tp(self):
-        times = 30.5 * np.asarray([14, 16, 18, 20, 22])
         actual_tp = pd.read_csv("timeROC_tp.csv")
-        results = timeROC(T=self.PFStime, delta=self.progression, marker=self.rawscore, cause=1, times=times)
-        tp = pd.DataFrame(results['TP'], columns=actual_tp.columns)
+        tp = pd.DataFrame(self.results['TP'], columns=actual_tp.columns)
         print(actual_tp)
         print(tp)
         self.assertEqual(len(actual_tp.index), len(tp.index))
 
     def test_fp(self):
-        times = 30.5 * np.asarray([14, 16, 18, 20, 22])
         actual_fp = pd.read_csv("timeROC_fp.csv")
-        results = timeROC(T=self.PFStime, delta=self.progression, marker=self.rawscore, cause=1, times=times)
-        fp = pd.DataFrame(results['FP'], columns=actual_fp.columns)
+        fp = pd.DataFrame(self.results['FP'], columns=actual_fp.columns)
         print(actual_fp)
         print(fp)
         self.assertEqual(len(actual_fp.index), len(fp.index))
 
     def test_survprob(self):
-        times = 30.5 * np.asarray([14, 16, 18, 20, 22])
         actual_survprob = [0.7862705, 0.7365341, 0.7106746, 0.6838567, 0.6570388]
-        results = timeROC(T=self.PFStime, delta=self.progression, marker=self.rawscore, cause=1, times=times)
-        print("actual", actual_survprob)
-        print(results['survProb'])
+        survprob = self.results['survProb']
+        self.assertTrue(all(np.isclose(survprob, actual_survprob)))
 
     def test_cumulative_incidence(self):
-        times = 30.5 * np.asarray([14, 16, 18, 20, 22])
         actual_ci = [0.2019941, 0.2634659, 0.2893254, 0.3027343, 0.3429612]
-        results = timeROC(T=self.PFStime, delta=self.progression, marker=self.rawscore, cause=1, times=times)
-        ci = results['CumulativeIncidence']
-        print("actual", actual_ci)
-        print(ci)
+        ci = self.results['CumulativeIncidence']
+        self.assertTrue(all(np.isclose(ci, actual_ci)))
 
     def test_stats(self):
-        times = 30.5 * np.asarray([14, 16, 18, 20, 22])
         actual_stats = pd.read_csv("timeROC_stats.csv")
-        results = timeROC(T=self.PFStime, delta=self.progression, marker=self.rawscore, cause=1, times=times)
-        stats = results['Stats']
+        stats = self.results['Stats']
         print("actual", actual_stats)
         print(stats)
+
+    def test_weights_cases_all(self):
+        actual_weights_cases_all = [0.01041895, 0.01030928, 0.01400491, 0.01041895, 0.01156530, 0.01173538, 0.01191319,
+                                    0.01248363, 0.01054299, 0.01228548, 0.07327658, 0.01030928, 0.01041895, 0.01054299,
+                                    0.01248363, 0.01248363, 0.01400491, 0.01041895, 0.01609150, 0.01041895, 0.01041895,
+                                    0.02630441, 0.01054299, 0.01094849, 0.01661058, 0.01269886, 0.01340895, 0.01041895,
+                                    0.01124844, 0.01316064, 0.01517198, 0.02203807, 0.01400491, 0.01209647, 0.01400491,
+                                    0.01437346, 0.01094849, 0.01173538, 0.01020408, 0.01156530, 0.01340895, 0.01400491,
+                                    0.01779998, 0.01851198, 0.01292563, 0.01400491, 0.01716426, 0.03799526, 0.01476193,
+                                    0.01228548, 0.01030928, 0.01156530, 0.01609150, 0.02442553, 0.02442553, 0.01041895,
+                                    0.01109644, 0.09770210, 0.02012171, 0.01041895, 0.01010101, 0.01054299, 0.14655316,
+                                    0.01340895, 0.29310631, 0.01248363, 0.01054299, 0.01561822, 0.01340895, 0.01080990,
+                                    0.01370045, 0.01400491, 0.03419574, 0.03108703, 0.04885105, 0.01000000, 0.01094849,
+                                    0.01269886, 0.01316064, 0.01340895, 0.01517198, 0.01779998, 0.01928331, 0.02313997,
+                                    0.02849645, 0.01041895, 0.01140467, 0.01340895, 0.01716426, 0.02442553, 0.01094849,
+                                    0.05862126, 0.04274467, 0.02442553, 0.02442553, 0.01716426, 0.02103634, 0.01340895,
+                                    0.02313997, 0.04885105]
+        T = self.PFStime.values
+        n = len(T)
+        delta = self.progression.values
+        marker = self.rawscore.values
+        order_marker = np.argsort(marker)
+        Mat_data = pd.DataFrame(matrix_transpose(T, delta, marker), columns=["T", "delta", "marker"])
+        Mat_data.index = order_marker
+        Mat_data.sort_index(inplace=True)
+        weights_cases_all = calculate_weights_cases_all(Mat_data, order_marker, n)
+        print("actual", actual_weights_cases_all)
+        print(weights_cases_all)
+        self.assertEqual(len(weights_cases_all),len(actual_weights_cases_all))
+        self.assertTrue(all(np.isclose(weights_cases_all, actual_weights_cases_all)))
+
+
+
+    def test_masking(self):
+        pass
+
+    def test_cases(self):
+        pass
+
+    def test_control_1(self):
+        pass
+
+    def test_control_2(self):
+        pass
+
+    def test_timeroc_inputs(self):
+        T = self.PFStime.values
+        delta = self.progression.values
+        marker = self.rawscore.values
+        cause = 1
+        times = self.times
+
+        actual_T = [771.6500, 2407.4667, 1630.7333, 1128.5000, 10.0000, 1637.8500, 454.4500,
+                    266.0000, 1165.1000, 610.0000, 1005.4833, 866.2000, 407.0000, 61.0000,
+                    130.0000, 200.0000, 36.0000, 428.0000, 1314.5500, 61.0000, 100.6500,
+                    441.0000, 701.5000, 2885.3000, 1602.2667, 292.0000, 459.0000, 348.0000,
+                    93.0000, 669.9833, 274.0000, 782.8333, 1152.9000, 196.0000, 435.0000,
+                    719.0000, 442.2500, 445.0000, 266.0000, 875.0000, 778.0000, 54.9000,
+                    155.0000, 1013.6167, 521.5500, 1393.8500, 433.0000, 427.0000, 542.9000,
+                    220.6167, 390.4000, 1110.2000, 854.0000, 1301.3333, 537.0000, 1125.4500,
+                    2569.1167, 212.0000, 131.0000, 244.0000, 167.7500, 527.0000, 811.0000,
+                    717.0000, 633.3833, 149.4500, 728.9500, 109.8000, 1572.0000, 1288.1167,
+                    683.2000, 718.0000, 2626.0500, 812.0000, 1198.6500, 792.0000, 295.8500,
+                    1101.0000, 774.0000, 386.0000, 1566.6833, 2006.9000, 421.0000, 982.0000,
+                    1241.3500, 84.0000, 1512.8000, 2773.4667, 385.0000, 314.1500, 350.0000,
+                    1163.0000, 1149.8500, 579.5000, 1469.0833, 820.4500, 1385.7167, 427.0000,
+                    567.0000, 841.0000]
+        actual_delta = [1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0,
+                        1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0,
+                        0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                        1, 0, 1, 1, 0, 0, 0]
+        actual_marker = [28.360091, 3.505252, 3.319087, 28.360091, 5.156380, 1.000000, 51.563801,
+                         9.471605, 35.625520, 8.414815, 4.421088, 15.978442, 77.102888, 85.909469,
+                         10.000000, 50.683143, 9.647737, 64.773674, 15.282317, 51.563801, 48.921827,
+                         24.000833, 6.287092, 7.005762, 25.938281, 28.844453, 6.653499, 47.160510,
+                         78.864204, 40.115245, 6.125104, 26.907005, 11.407421, 36.594244, 61.251041,
+                         29.813177, 51.563801, 64.773674, 6.477367, 50.683143, 82.386837, 28.360091,
+                         5.068314, 2.250208, 5.156380, 3.130866, 29.813177, 64.773674, 5.156380,
+                         63.012357, 28.360091, 5.156380, 6.477367, 15.282317, 27.875729, 28.360091,
+                         60.554735, 47.250208, 87.670786, 51.563801, 51.563801, 40.469140, 29.813177,
+                         5.068314, 2.069604, 13.344869, 51.563801, 49.187656, 5.596709, 3.054587,
+                         28.360091, 6.125104, 12.693956, 24.969557, 5.156380, 33.688073, 3.659261,
+                         26.907005, 5.948972, 5.068314, 5.420578, 5.260524, 16.251041, 43.637878,
+                         1.017287, 17.219765, 5.156380, 9.382874, 36.594244, 5.156380, 13.344869,
+                         2.074077, 5.156380, 5.156380, 48.921827, 5.156380, 4.005238, 28.844453,
+                         36.592612, 35.625520]
+        actual_cause = 1
+        actual_times = [427, 488, 549, 610, 671]
+        self.assertTrue(all(np.isclose(T, actual_T)))
+        self.assertTrue(all(np.isclose(delta, actual_delta)))
+        self.assertTrue(all(np.isclose(marker, actual_marker)))
+        self.assertEqual(cause, actual_cause)
+        self.assertTrue(all(np.isclose(times, actual_times)))

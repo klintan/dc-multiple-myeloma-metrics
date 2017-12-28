@@ -22,90 +22,32 @@ class IPCW():
     order to get the values \code{IPCW.subject.times} in the right order for some
     choices of \code{method}.
 
-    @aliases ipcw ipcw.none ipcw.marginal ipcw.nonpar ipcw.cox ipcw.aalen
-    @param formula A survival formula like, \code{Surv(time,status)~1}, where
+    :param formula: A survival formula like, \code{Surv(time,status)~1}, where
     as usual status=0 means censored. The status variable is internally
       reversed for estimation of censoring rather than survival
       probabilities. Some of the available models (see argument
      \code{model}) will use predictors on the right hand side of the
      formula.
-     @param data The data used for fitting the censoring model
-     @param method Censoring model used for estimation of the
-     (conditional) censoring distribution.
-     @param args A list of arguments which is passed to method
-     @param times For \code{what="IPCW.times"} a vector of times at
-     which to compute the probabilities of not being censored.
-     @param subject.times For \code{what="IPCW.subject.times"} a vector of
-     individual times at which the probabilities of not being censored
+     :param data : The data used for fitting the censoring model
+     :param method : Censoring model used for estimation of the (conditional) censoring distribution.
+     :param args : A list of arguments which is passed to method
+     :param times : For \code{what="IPCW.times"} a vector of times at which to compute the probabilities of not being censored.
+     :param subject.times : For \code{what="IPCW.subject.times"} a vector of individual times at which the probabilities of not being censored
      are computed.
-     @param lag If equal to \code{1} then obtain
-     \code{G(T_i-|X_i)}, if equal to \code{0} estimate the conditional
-     censoring distribution at the subject.times,
-     i.e. (\code{G(T_i|X_i)}).
-     @param what Decide about what to do: If equal to
-     \code{"IPCW.times"} then weights are estimated at given
-     \code{times}.  If equal to \code{"IPCW.subject.times"} then weights
-     are estimated at individual \code{subject.times}.  If missing then
+     :param lag : If equal to \code{1} then obtain \code{G(T_i-|X_i)}, if equal to \code{0} estimate the conditional
+     censoring distribution at the subject.times, i.e. (\code{G(T_i|X_i)}).
+     : param what : Decide about what to do: If equal to \code{"IPCW.times"} then weights are estimated at given
+     \code{times}.  If equal to \code{"IPCW.subject.times"} then weights are estimated at individual \code{subject.times}.  If missing then
      produce both.
-     @param keep Which elements to add to the output. Any subset of the vector \code{c("times","fit","call")}.
-     @return A list with elements depending on argument \code{keep}. \item{times}{The times at which weights are estimated}
-     \item{IPCW.times}{Estimated weights at \code{times}}
-     \item{IPCW.subject.times}{Estimated weights at individual time values
-     \code{subject.times}} \item{fit}{The fitted censoring model}
-     \item{method}{The method for modelling the censoring distribution}
-     \item{call}{The call}
-     @author Thomas A. Gerds \email{tag@@biostat.ku.dk}
-     @keywords survival
-     @examples
-
-     library(prodlim)
-     library(rms)
-     dat=SimSurv(30)
-
-     dat <- dat[order(dat$time),]
-
-     # using the marginal Kaplan-Meier for the censoring times
-
-     WKM=ipcw(Hist(time,status)~X2,
-       data=dat,
-       method="marginal",
-       times=sort(unique(dat$time)),
-       subject.times=dat$time,keep=c("fit"))
-     plot(WKM$fit)
-     WKM$fit
-
-     # using the Cox model for the censoring times given X2
-     library(survival)
-     WCox=ipcw(Hist(time=time,event=status)~X2,
-       data=dat,
-       method="cox",
-       times=sort(unique(dat$time)),
-       subject.times=dat$time,keep=c("fit"))
-     WCox$fit
-
-     plot(WKM$fit)
-     lines(sort(unique(dat$time)),
-           1-WCox$IPCW.times[1,],
-           type="l",
-           col=2,
-           lty=3,
-           lwd=3)
-     lines(sort(unique(dat$time)),
-           1-WCox$IPCW.times[5,],
-           type="l",
-           col=3,
-           lty=3,
-           lwd=3)
-
-     # using the stratified Kaplan-Meier
-     # for the censoring times given X2
-
-     WKM2=ipcw(Hist(time,status)~X2,
-       data=dat,
-       method="nonpar",
-       times=sort(unique(dat$time)),
-       subject.times=dat$time,keep=c("fit"))
-     plot(WKM2$fit,add=FALSE)
+     :param keep : Which elements to add to the output. Any subset of the vector \code{c("times","fit","call")}.
+     :return: A list with elements depending on argument \code{keep}.
+     times: The times at which weights are estimated}
+     times: Estimated weights at times
+     subject.times: Estimated weights at individual time values subject.times
+     fit :  the fitted censoring model
+     method : The method for modelling the censoring distribution
+     call: The call
+     :author Andreas Klintberg ankl@kth.se
     """
 
     def __init__(self, formula, data, method, times, subjectTimes, what=None, args=None, subjectTimesLag=1):

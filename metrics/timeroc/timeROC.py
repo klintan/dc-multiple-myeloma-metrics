@@ -1,36 +1,73 @@
 import numpy as np
-import functools
 import pandas as pd
 from metrics.ipcw.ipcw import IPCW
 from lifelines import KaplanMeierFitter
 # import iid_decomposition as compute_iid_decomposition
 import timeit
-import statsmodels.api as sm
 from sklearn.metrics import auc
 
-def reduce_concat(x, sep=""):
-    return functools.reduce(lambda x, y: str(x) + sep + str(y), x)
+
+def calculate_weights_cases_all(mat_data, order, n):
+    # weights for all cases
+    weights_cases_all = 1 / (mat_data['T'].values * n)
+    # sort using arg_sort list
+    return weights_cases_all[order]
 
 
-def paste(*lists, sep=" ", collapse=None):
-    result = map(lambda x: reduce_concat(x, sep=sep), zip(*lists))
-    if collapse is not None:
-        return reduce_concat(result, sep=collapse)
-    return list(result)
+def case_masking(mat_data, times, t, cause):
+    times_t = mat_data["T"] < times[t]
+    delta_cause = mat_data["delta"] == cause
+    delta_not_cause = mat_data["delta"] != cause
+    delta_one = mat_data["delta"] != 0
+
+    cases = mat_data[times_t & delta_cause]
+    controls_1 = mat_data[times_t]
+    controls_2 = mat_data[times_t & delta_not_cause & delta_one]
+
+    return (cases, controls_1, controls_2)
+
+def matrix_transpose(*args):
+    return np.array((args)).transpose()
+
 
 def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="marginal", ROC=True, iid=False):
-    # https://github.com/cran/timeROC/blob/master/R/timeROC_3.R
+    '''
+    A function which returns time dependent ROC values.
+    Adapted from R timeROC https://github.com/cran/timeROC/blob/master/R/timeROC_3.R
 
-    # T              : vector of observed failure times
-    # delta          : vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...)
-    # marker         : vector of marker values
-    # cause          : the value that indicates the main event of interest
-    # times          : vector of times you want to compute the time dependent AUC.
-    # other_markers  : (default is NULL, should be a matrix) other markers that can be associated with the censoring mechanism
-    # weighting      : (default is "marginal") weighting technique for IPCW : "marginal" for Kaplan-Meier, "cox" for proportional hazards cox model, "aalen" for additive aalen model
-    # ROC            : if TRUE, then save True Positive fraction (Sensitivity) and False Positive fraction (1-Specificity)
-    #                  for all time in vetor times
-    # iid            : TRUE or FALSE, indicates if we want to compute the iid representation of the AUC estimator
+    :param T: vector of observed failure times
+    :param delta: vector of indicator of status (0 for censoring, 1 for type of event one, 2 for type of event two and so on...)
+    :param marker: vector of marker values
+    :param cause: the value that indicates the main event of interest
+    :param times: vector of times you want to compute the time dependent AUC.
+    :param other_markers: (default is NULL, should be a matrix) other markers that can be associated with the censoring mechanism
+    :param weighting: (default is "marginal") weighting technique for IPCW : "marginal" for Kaplan-Meier, "cox" for proportional hazards cox model, "aalen" for additive aalen model
+    :param ROC: if TRUE, then save True Positive fraction (Sensitivity) and False Positive fraction (1-Specificity) for all time in vetor times
+    :param iid: TRUE or FALSE, indicates if we want to compute the iid representation of the AUC estimator
+    :return:
+        TP : if ROC=TRUE, the matrix of True Positive fraction (sensitivty),
+        with  columns correspond to time of vector (ordered) times
+        FP_1 : if ROC=TRUE, the matrix of False Positive fraction (1-Specificity),
+        where a "control" is defined as an event-free subject at time t,
+        with  columns correspond to time of vector (ordered) times
+        FP_2 : if ROC=TRUE, the matrix of False Positive fraction (1-Specificity),
+        where a "control" is defined as any subject that is not a case,
+        with  columns correspond to time of vector (ordered) times
+        AUC_1 : vector of AUC for each times in vector (ordered) times computed with FP_1
+        AUC_2 : vector of AUC for each times in vector (ordered) times computed with FP_2
+        times : the input vector (ordered) times. If there is only one time in the input,
+        then 0 is added
+        survProb: the vector of probabilities to be event free (all causes) at each time in
+        vector (ordered) times (denominator of False positive fraction)
+        CumulativeIncidence : the vector of the cumulative incidences of the type of event
+        of interest at each time in vector (ordered) times
+        n : number of observations
+        Stats : matrix with numbers of observed cases and controls (both definitions), and
+        censored before time point, for each  time in vector (ordered) times
+        weights : an object of class "ipcw" (see "pec" package) with all information about the weights
+        computation_time : the computation time
+
+    '''
 
     # check some inputs
     if len(delta) != len(T) or len(marker) != len(T) or len(marker) != len(delta):
@@ -83,8 +120,8 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     delta = delta.values[indices]
     marker = marker.values[indices]
     weights = {}
-    IPCW_data = np.array((T, delta)).transpose()
-    temp_data = np.array((T, delta, marker)).transpose()
+    IPCW_data = matrix_transpose(T, delta)
+    temp_data = matrix_transpose(T, delta, marker)
 
     # use ipcw function from pec package
     if weighting == "marginal":
@@ -104,24 +141,17 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     order_marker = np.argsort(marker)
 
     # concat by column all of them using order marker (to get corresponding values in order)
-    # Mat_data <- cbind(T, delta, marker)[order_marker, ]
-    # colnames(Mat_data) <- c("T", "delta", "marker")
-    Mat_data = pd.DataFrame(temp_data, columns=["T", "delta",
-                                                "marker"])  # all matrices should be defined as Pandas dataframes instead
+    Mat_data = pd.DataFrame(temp_data, columns=["T", "delta", "marker"])
     Mat_data.index = order_marker
     Mat_data.sort_index(inplace=True)
 
-    # Weights for all cases
-    Weights_cases_all = 1 / (Mat_data['T'].values * n)
-
-    # sort, this is probably unnecessary so lets skip for now.
-    Weights_cases_all = Weights_cases_all[order_marker]
+    Weights_cases_all = calculate_weights_cases_all(Mat_data, order_marker, n)
 
     #  Make TP and FP outputs if needed
     if ROC:
-        FP_1 = np.zeros(((n_marker), n_times))
-        TP = np.zeros(((n_marker), n_times))
-        FP_2 = np.zeros(((n_marker), n_times))
+        FP_1 = np.zeros((n_marker, n_times))
+        TP = np.zeros((n_marker, n_times))
+        FP_2 = np.zeros((n_marker, n_times))
     else:
         FP_1 = None
         FP_2 = None
@@ -130,16 +160,10 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
     # loop on all timepoints t
     cause = float(cause)
     for t in range(0, n_times):
-        times_t = Mat_data["T"] < times[t]
-        delta_cause = Mat_data["delta"] == cause
-        delta_not_cause = Mat_data["delta"] != cause
-        delta_one = Mat_data["delta"] != 0
+        Cases, Controls_1, Controls_2 = case_masking(Mat_data, times, t, cause)
 
-        Cases = Mat_data[times_t & delta_cause]
-        Controls_1 = Mat_data[times_t]
-        Controls_2 = Mat_data[times_t & delta_not_cause & delta_one]
         if weighting != "marginal":
-            Weights_controls_1 = 1 / (times(t) * n)
+            Weights_controls_1 = 1 / (times[t] * n)
         else:
             Weights_controls_1 = np.repeat(1 / (times[t] * n), n)
 
@@ -148,7 +172,6 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
         Weights_cases = Weights_cases_all
         Weights_controls_2 = Weights_cases_all
-
         # All the patients in Cases should be 0 for Weights_cases
         Weights_cases[Cases.index] = 0
         # All the patients in Weights_controls_1 should be 0 for Controls_1
@@ -178,20 +201,19 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         else:
             FP_2_t = None
 
-
         if den_TP_t * den_FP_1_t != 0:
             # sorting that sklearn auc uses
             # order = np.lexsort((FP_1_t, TP_t))
             # FP_1_t, TP_t = FP_1_t[order], TP_t[order]
             # it needs to be ordered, it should probably be ordered already
-            AUC_1[t] = auc(FP_1_t, TP_t, reorder=False)
+            AUC_1[t] = auc(FP_1_t, TP_t)
 
         else:
             AUC_1[t] = None
 
         if den_TP_t * den_FP_2_t != 0:
             # it needs to be ordered, it should probably be ordered already
-            AUC_2[t] = auc(FP_2_t, TP_t, reorder=False)
+            AUC_2[t] = auc(FP_2_t, TP_t)
 
         else:
             AUC_2[t] = None
@@ -203,6 +225,8 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
         CumInci[t] = den_TP_t
         surv[t] = den_FP_1_t
+        # Stats.iloc[t] = [sum(Cases.values), sum(Controls_1.values), sum(Controls_2.values), n - sum(Cases.values) - sum(Controls_1.values) - sum(Controls_2.values)]
+
         # Stats[t, :] = np.array([sum(Cases), sum(Controls_1), sum(Controls_2),
         #                       n - sum(Cases) - sum(Controls_1) - sum(Controls_2)])
 
@@ -215,22 +239,22 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         else:
             # create iid representation required for inference procedures
             out_iid = np.zeros(n_times)
-            #names[out_iid] = paste("t=", times, sep="")
+            # names[out_iid] = paste("t=", times, sep="")
 
             vect_iid_comp_time = np.zeros(n_times)
-            #names[vect_iid_comp_time] = paste("t=", times, sep="")
+            # names[vect_iid_comp_time] = paste("t=", times, sep="")
 
             mat_iid_rep = np.zeros(n, n_times)
-            #colnames[mat_iid_rep] = paste("t=", times, sep="")
+            # colnames[mat_iid_rep] = paste("t=", times, sep="")
 
             mat_iid_rep_star = np.zeros(n, n_times)
-            #colnames[mat_iid_rep_star] = paste("t=", times, sep="")
+            # colnames[mat_iid_rep_star] = paste("t=", times, sep="")
 
             vetc_se = np.zeros(n_times)
-            #names[vetc_se] = paste("t=", times, sep="")
+            # names[vetc_se] = paste("t=", times, sep="")
 
             vetc_sestar = np.zeros(n_times)
-            #names[vetc_sestar] = paste("t=", times, sep="")
+            # names[vetc_sestar] = paste("t=", times, sep="")
 
         # compute iid for Kaplan Meier
         kmf = KaplanMeierFitter()
@@ -272,7 +296,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
         out = {'TP': TP, 'FP': FP_1, 'AUC': AUC_1, 'times': times, 'CumulativeIncidence': CumInci, 'survProb': surv,
                'n': n, 'Stats': Stats[['Cases', 'Other events at t', 'Censored at t']], 'weights': weights,
                'inference': inference,
-               'computation_time': stop_computation_time-start_computation_time, 'iid': iid}
+               'computation_time': stop_computation_time - start_computation_time, 'iid': iid}
         # class(out) < - "ipcwsurvivalROC"
     else:
         out = {'TP': TP, 'FP_1': FP_1, 'AUC_1': AUC_1, 'FP_2': FP_2, 'AUC_2': AUC_2, 'times': times,
