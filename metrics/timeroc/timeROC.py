@@ -142,8 +142,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
 
     # concat by column all of them using order marker (to get corresponding values in order)
     Mat_data = pd.DataFrame(temp_data, columns=["T", "delta", "marker"])
-    Mat_data.index = order_marker
-    Mat_data.sort_index(inplace=True)
+    Mat_data.sort_values("marker", ascending=False, inplace=True)
 
     Weights_cases_all = calculate_weights_cases_all(Mat_data, order_marker, n)
 

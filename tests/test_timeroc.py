@@ -87,16 +87,76 @@ class TimeROCTests(unittest.TestCase):
         delta = self.progression.values
         marker = self.rawscore.values
         order_marker = np.argsort(marker)
+
         Mat_data = pd.DataFrame(matrix_transpose(T, delta, marker), columns=["T", "delta", "marker"])
-        Mat_data.index = order_marker
-        Mat_data.sort_index(inplace=True)
+        Mat_data.sort_values("marker", ascending=False, inplace=True)
+
         weights_cases_all = calculate_weights_cases_all(Mat_data, order_marker, n)
         print("actual", actual_weights_cases_all)
         print(weights_cases_all)
-        self.assertEqual(len(weights_cases_all),len(actual_weights_cases_all))
+        self.assertEqual(len(weights_cases_all), len(actual_weights_cases_all))
         self.assertTrue(all(np.isclose(weights_cases_all, actual_weights_cases_all)))
 
+    def test_mat_data(self):
+        T = self.PFStime.values
+        delta = self.progression.values
+        marker = self.rawscore.values
+        Mat_data = pd.DataFrame(matrix_transpose(T, delta, marker), columns=["T", "delta", "marker"])
+        Mat_data.sort_values("marker", ascending=False, inplace=True)
 
+        actual_Mat_data = pd.read_csv("mat_data.csv")
+        # print(actual_Mat_data.values)
+        # print(Mat_data.values)
+
+        # np.testing.assert_almost_equal(Mat_data['T'].values, actual_Mat_data['T'].values, decimal=0, err_msg='', verbose=True)
+        # self.assertTrue(np.allclose(Mat_data['T'].values, actual_Mat_data['T'].values, atol=1e-02))
+        # self.assertTrue(np.allclose(Mat_data['delta'].values, actual_Mat_data['delta'].values, atol=1e-05))
+        # self.assertTrue(np.allclose(Mat_data['marker'].values, actual_Mat_data['marker'].values, atol=1e-05))
+        for idx, val in enumerate(Mat_data['T'].values):
+            diff = val - actual_Mat_data['T'].values[idx]
+            print(diff)
+
+    def test_sort(self):
+        # I had a suspicion that the sorting in R and python differed and it makes a huge difference (if not only
+        # becase the other tests fail if its not correct)
+
+        # timeROC.r line 151
+        # order_marker <- order(- marker)
+
+        actual_marker = [5.156380, 9.647737, 28.360091, 85.909469, 51.563801, 17.219765, 78.864204,
+                         48.921827, 49.187656, 10.000000, 87.670786, 13.344869, 5.068314, 51.563801,
+                         36.594244, 50.683143, 47.250208, 63.012357, 51.563801, 9.471605, 6.477367,
+                         6.125104, 28.844453, 3.659261, 5.156380, 47.160510, 13.344869, 36.594244,
+                         5.068314, 28.360091, 77.102888, 16.251041, 64.773674, 28.844453, 64.773674,
+                         29.813177, 61.251041, 24.000833, 51.563801, 64.773674, 51.563801, 6.653499,
+                         5.156380, 40.469140, 27.875729, 5.156380, 36.592612, 5.156380, 8.414815,
+                         2.069604, 40.115245, 28.360091, 6.287092, 5.068314, 6.125104, 29.813177,
+                         51.563801, 28.360091, 5.948972, 82.386837, 26.907005, 33.688073, 29.813177,
+                         24.969557, 5.156380, 35.625520, 6.477367, 15.978442, 50.683143, 43.637878,
+                         4.421088, 2.250208, 26.907005, 5.156380, 28.360091, 28.360091, 5.156380,
+                         11.407421, 2.074077, 35.625520, 5.156380, 1.017287, 3.054587, 15.282317,
+                         15.282317, 4.005238, 3.130866, 48.921827, 5.156380, 5.420578, 5.596709,
+                         25.938281, 3.319087, 1.000000, 5.260524, 3.505252, 60.554735, 12.693956,
+                         9.382874, 7.005762]
+
+        marker = list(self.rawscore.values)
+
+
+        actual_order_marker = [11, 4, 60, 7, 31, 33, 35, 40, 18, 37, 97, 5, 14, 19, 39, 41, 57, 16,
+                               69, 9, 8, 88, 17, 26, 70, 44, 51, 15, 28, 47, 66, 80, 62, 36, 56, 63,
+                               23, 34, 3, 30, 52, 58, 75, 76, 45, 61, 73, 92, 64, 38, 6, 32, 68, 84,
+                               85, 12, 27, 98, 78, 10, 2, 20, 99, 49, 100, 42, 21, 67, 53, 22, 55, 59,
+                               91, 90, 95, 1, 25, 43, 46, 48, 65, 74, 77, 81, 89, 13, 29, 54, 71, 86,
+                               24, 96, 93, 87, 83, 72, 79, 50, 82, 94, 11, 4, 60, 7, 31, 33, 35, 40,
+                               18, 37, 97, 5, 14, 19, 39, 41, 57, 16, 69, 9, 8, 88, 17, 26, 70, 44, 51,
+                               15, 28, 47, 66, 80, 62, 36, 56, 63, 23, 34, 3, 30, 52, 58, 75, 76, 45,
+                               61, 73, 92, 64, 38, 6, 32, 68, 84, 85, 12, 27, 98, 78, 10, 2, 20, 99, 49,
+                               100, 42, 21, 67, 53, 22, 55, 59, 91, 90, 95, 1, 25, 43, 46, 48, 65, 74, 77,
+                               81, 89, 13, 29, 54, 71, 86, 24, 96, 93, 87, 83, 72, 79, 50, 82, 94]
+        arg_sort = np.argsort(marker)
+
+        #self.assertSequenceEqual(arg_sort, actual_order_marker)
+        self.assertSequenceEqual(list(marker), actual_marker)
 
     def test_masking(self):
         pass

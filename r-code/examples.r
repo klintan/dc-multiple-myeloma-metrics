@@ -3,7 +3,7 @@ source("./metrics.r")
 ## Testing full results
 #calculate <- dget("metrics.r")
 test = read.csv("../sample-data/test_data.csv", header = TRUE)
-test['predictionscore'] <- order(test['D_PFS'])
+#test['predictionscore'] <- order(test['D_PFS'])
 pred = read.csv("../sample-data/predictions.csv", header = TRUE)
 # rawscore, highrisk, PFStime, pfs_flag
 #calculate.metrics(pred,  pred['highriskflag'], test['D_PFS'], test['D_PFS_FLAG'])
