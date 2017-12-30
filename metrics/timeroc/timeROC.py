@@ -116,6 +116,7 @@ def timeROC(T, delta, marker, cause, times, other_markers=None, weighting="margi
                          index=times_names)
 
     indices = np.argsort(T)
+
     T = np.array(sorted(T))
     delta = delta.values[indices]
     marker = marker.values[indices]
